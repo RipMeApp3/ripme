@@ -2,7 +2,6 @@ package com.rarchives.ripme.ui;
 
 import java.awt.*;
 import java.awt.TrayIcon.MessageType;
-import java.awt.datatransfer.ClipboardOwner;
 import java.awt.event.*;
 import java.io.BufferedReader;
 import java.io.File;
@@ -41,6 +40,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.rarchives.ripme.App;
 import com.rarchives.ripme.ripper.AbstractRipper;
 import com.rarchives.ripme.uiUtils.ContextActionProtections;
 import com.rarchives.ripme.utils.DebouncedRunnable;
@@ -235,6 +235,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     }
 
     public void run() {
+        App.getDownloadedFilesLog().load();
         pack();
         restoreWindowPosition(mainFrame);
         mainFrame.setVisible(true);

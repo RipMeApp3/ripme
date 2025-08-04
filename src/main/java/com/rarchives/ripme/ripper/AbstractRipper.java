@@ -11,10 +11,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +21,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.HttpStatusException;
 
 import com.rarchives.ripme.App;
+import com.rarchives.ripme.ui.MainWindow;
 import com.rarchives.ripme.ui.RipStatusComplete;
 import com.rarchives.ripme.ui.RipStatusHandler;
 import com.rarchives.ripme.ui.RipStatusMessage;
@@ -330,6 +328,34 @@ public abstract class AbstractRipper
             return false;
         }
         itemsSeen.incrementAndGet();
+
+        // TODO wrap symlink path in option
+        if (App.getDownloadedFilesLog().exists(ripUrlId)) {
+            // Item is already downloaded/downloading, skip it.
+            File targetFile = App.getDownloadedFilesLog().get(ripUrlId);
+            if (filename == null) {
+                filename = targetFile.getName();
+            }
+            Path saveAs = directory.resolve(filename);
+            if (saveAs.toFile().exists()) {
+                logger.info("[!] Skipping " + filename + " -- file already exists: " + Utils.removeCWD(saveAs));
+                downloadExists(ripUrlId, saveAs);
+                return false;
+            }
+            logger.info("[!] " + filename + " previously downloaded -- creating symlink: " + Utils.removeCWD(saveAs) + " -> " + targetFile.toString());
+            try {
+                Path target = saveAs.getParent().relativize(targetFile.getCanonicalFile().toPath());
+                Files.createSymbolicLink(saveAs, target);
+                downloadLinked(ripUrlId, saveAs, target);
+            } catch (FileAlreadyExistsException e) {
+                logger.debug("[!] File already exists: " + Utils.removeCWD(saveAs) + " -> " + targetFile);
+                downloadErrored(ripUrlId, "File already exists: " + Utils.removeCWD(saveAs));
+            } catch (IOException e) {
+                logger.error("[!] Error creating symlink: " + Utils.removeCWD(saveAs) + " -> " + targetFile, e);
+                downloadErrored(ripUrlId, "Error creating symlink: " + e.getMessage());
+            }
+            return false;
+        }
 
         if (!allowDuplicates()
                 && ( itemsPending.contains(ripUrlId)
@@ -662,6 +688,7 @@ public abstract class AbstractRipper
             RipStatusMessage msg = new RipStatusMessage(STATUS.DOWNLOAD_COMPLETE, path);
             itemsPending.remove(ripUrlId);
             itemsCompleted.put(ripUrlId, saveAs);
+            App.getDownloadedFilesLog().add(ripUrlId, saveAs.toFile()); // TODO find clean place to put this
             observer.update(this, msg);
 
             //checkIfComplete();
@@ -711,6 +738,18 @@ public abstract class AbstractRipper
         itemsPending.remove(ripUrlId);
         itemsCompleted.put(ripUrlId, file);
         observer.update(this, new RipStatusMessage(STATUS.DOWNLOAD_WARN, Utils.getLocalizedString("0.already.saved.as.1", ripUrlId, file)));
+
+        //checkIfComplete();
+    }
+
+    protected void downloadLinked(RipUrlId ripUrlId, Path file, Path target) {
+        if (observer == null) {
+            return;
+        }
+
+        itemsPending.remove(ripUrlId);
+        itemsCompleted.put(ripUrlId, file);
+        observer.update(this, new RipStatusMessage(STATUS.DOWNLOAD_WARN, file.getFileName().toString() + " previously downloaded -- creating symlink: " + Utils.removeCWD(file) + " -> " + target));
 
         //checkIfComplete();
     }

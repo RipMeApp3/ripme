@@ -1,10 +1,7 @@
 package com.rarchives.ripme;
 
 import com.rarchives.ripme.ripper.AbstractRipper;
-import com.rarchives.ripme.ui.History;
-import com.rarchives.ripme.ui.HistoryEntry;
-import com.rarchives.ripme.ui.MainWindow;
-import com.rarchives.ripme.ui.UpdateUtils;
+import com.rarchives.ripme.ui.*;
 import com.rarchives.ripme.utils.Proxy;
 import com.rarchives.ripme.utils.RipUtils;
 import com.rarchives.ripme.utils.Utils;
@@ -46,6 +43,7 @@ public class App {
     private static final Logger logger = LogManager.getLogger(App.class);
     public static String stringToAppendToFoldername = null;
     private static final History HISTORY = new History();
+    private static final DownloadedFilesLog downloadedFilesLog = new DownloadedFilesLog();
 
     /**
      * Where everything starts. Takes in, and tries to parse as many commandline arguments as possible.
@@ -74,6 +72,7 @@ public class App {
         }
 
         if (GraphicsEnvironment.isHeadless() || args.length > 0) {
+            downloadedFilesLog.load();
             handleArguments(args);
         } else {
             // Antialiasing hint, especially for Linux
@@ -91,6 +90,10 @@ public class App {
             MainWindow mw = new MainWindow();
             SwingUtilities.invokeLater(mw);
         }
+    }
+
+    public static DownloadedFilesLog getDownloadedFilesLog() {
+        return downloadedFilesLog;
     }
 
     /**
