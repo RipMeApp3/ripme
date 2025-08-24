@@ -32,6 +32,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -111,6 +112,12 @@ public class Utils {
         }
 
         resourceBundle = getResourceBundle(null);
+    }
+
+    public static String getStackTrace() {
+        return Arrays.stream(Thread.currentThread().getStackTrace())
+                .map(StackTraceElement::toString)
+                .collect(Collectors.joining("\n"));
     }
 
     /**
