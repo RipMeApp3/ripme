@@ -282,7 +282,7 @@ public abstract class AbstractRipper
      *
      * @param url    URL of the file
      * @param saveAs Path of the local file to save the content to.
-     * @return True on success, false on failure.
+     * @return true if queued, false if skipped
      */
     public boolean addURLToDownload(URL url, Path saveAs) {
         return addURLToDownload(url, saveAs, null, null, false);
@@ -296,8 +296,7 @@ public abstract class AbstractRipper
      * @param referrer The HTTP referrer to use while downloading this file.
      * @param cookies  The cookies to send to the server while downloading this
      *                 file.
-     * @return True if downloaded successfully
-     *         False if failed to download
+     * @return true if queued, false if skipped
      */
     public boolean addURLToDownload(URL url, Path saveAs, String referrer, Map<String, String> cookies, Boolean getFileExtFromMIME) {
         TokenedUrlGetter tug = () -> url;
