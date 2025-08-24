@@ -41,7 +41,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.rarchives.ripme.App;
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.AbstractRipper;
+import com.rarchives.ripme.ripper.SkipAlbumRipException;
 import com.rarchives.ripme.uiUtils.ContextActionProtections;
 import com.rarchives.ripme.utils.DebouncedRunnable;
 import com.rarchives.ripme.utils.RipUtils;
@@ -235,6 +237,8 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     }
 
     public void run() {
+        // TODO display a spinner on mainFrame while data is initializing/loading
+        App.getDb().initialize();
         App.getDownloadedFilesLog().load();
         pack();
         restoreWindowPosition(mainFrame);
@@ -1490,6 +1494,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         isRipperActive.set(false);
         currentlyRippingProgress.setValue(0);
         currentlyRippingProgress.setText("");
+        App.getDb().cleanupWal();
     }
 
     private Thread ripAlbum(String urlString) {
@@ -1532,7 +1537,12 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         try {
             LOGGER.debug("Creating ripper for url {}", url);
             ripper = AbstractRipper.getRipper(url);
-            ripper.setup();
+            ripper.setup(new RipService(App.getDb()));
+        } catch (SkipAlbumRipException e) {
+            failed = true;
+            if (e.getReason() == SkipAlbumRipException.Reason.KNOWN_REMOVED) {
+                statusWithColor(Utils.getLocalizedString("skipping.known.removed.album.0", url), Color.YELLOW);
+            }
         } catch (Exception e) {
             failed = true;
             LOGGER.error("Could not find ripper for URL " + url, e);

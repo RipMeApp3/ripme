@@ -1,5 +1,6 @@
 package com.rarchives.ripme.tst.ripper.rippers;
 
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.rippers.InstagramRipper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -32,7 +33,7 @@ public class InstagramRipperTest extends RippersTest {
         testURLs.put(new URI("https://www.instagram.com/p/BaNPpaHn2zU/").toURL(), "post_BaNPpaHn2zU");
         for (URL url : testURLs.keySet()) {
             InstagramRipper ripper = new InstagramRipper(url);
-            ripper.setup();
+            ripper.setup(new RipService(db));
             Assertions.assertEquals(testURLs.get(url), ripper.getGID(ripper.getURL()));
             deleteDir(ripper.getWorkingDir());
         }

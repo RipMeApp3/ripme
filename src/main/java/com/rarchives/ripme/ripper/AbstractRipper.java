@@ -12,10 +12,14 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.rarchives.ripme.db.model.Album;
+import com.rarchives.ripme.db.model.RemoteFile;
+import com.rarchives.ripme.db.service.RipService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.HttpStatusException;
@@ -81,6 +85,13 @@ public abstract class AbstractRipper
     RipStatusHandler observer = null;
 
     private final AtomicBoolean completed = new AtomicBoolean(false);
+
+    protected RipService ripService;
+    protected Album album;
+
+    public RipService getRipService() {
+        return ripService;
+    }
 
     public abstract void rip() throws IOException, URISyntaxException;
 
@@ -256,7 +267,7 @@ public abstract class AbstractRipper
      *
      * @throws IOException Always be prepared.
      */
-    public void setup() throws IOException, URISyntaxException {
+    public void setup(RipService ripService) throws IOException, URISyntaxException {
         setWorkingDir(this.url);
         // we do not care if the RollingFileAppender is active,
         // just change the logfile in case.
@@ -269,6 +280,18 @@ public abstract class AbstractRipper
         // ctx.reconfigure();
         // ctx.updateLoggers();
 
+        //this.db = db;
+        //this.ripService = new RipService(db);
+        this.ripService = ripService;
+        try {
+            this.album = ripService.getAlbum(getClass(), getHost(), getGID(url), this.url);
+            if (album.isRemoved()) {
+                logger.info("Album is known to be removed from remote; not re-ripping: {}", this.url);
+                throw new SkipAlbumRipException(SkipAlbumRipException.Reason.KNOWN_REMOVED);
+            }
+        } catch (SQLException ignored) {
+            // We'll just do this one without saving it to the db then...
+        }
         this.ripperThreadPool = new DownloadThreadPool(getClass().getSimpleName() + "-ripper-" + getGID(url));
         this.crawlerThreadPool = new DownloadThreadPool(getClass().getSimpleName() + "-crawler");
     }
@@ -327,6 +350,26 @@ public abstract class AbstractRipper
             return false;
         }
         itemsSeen.incrementAndGet();
+
+        RemoteFile remoteFile = null;
+        boolean wasRemoteFileInAlbum = false;
+        try {
+            remoteFile = ripService.getRemoteFile(ripUrlId);
+            wasRemoteFileInAlbum = ripService.isRemoteFileInAlbum(album, remoteFile);
+            ripService.putRemoteFileInAlbum(album, remoteFile);
+            if (filename != null) {
+                remoteFile.setFilename(filename);
+                ripService.saveRemoteFile(remoteFile);
+            }
+        } catch (SQLException ignored) {
+            // Continue without having saved RemoteFile...
+        }
+
+        if (remoteFile != null && (remoteFile.isFetched() || remoteFile.isIgnored())) {
+            logger.info("Already fetched: {} / {}", remoteFile.getUrlId(), remoteFile.getFilename());
+            downloadSkipped(ripUrlId, "Already fetched: " + remoteFile.getUrlId() + " / " + remoteFile.getFilename());
+            return false;
+        }
 
         // TODO wrap symlink path in option
         if (App.getDownloadedFilesLog().exists(ripUrlId) && !Utils.isWindows()) {
@@ -390,6 +433,14 @@ public abstract class AbstractRipper
                 return false;
             }
             return true;
+        }
+        if (remoteFile != null && remoteFile.isRemoved()) {
+            logger.info("File is known removed; not downloading {}", ripUrlId);
+            return false;
+        }
+        if (remoteFile != null && remoteFile.isFetched() && wasRemoteFileInAlbum) {
+            logger.info("File is already fetched for the album; not downloading {}", ripUrlId);
+            return false;
         }
 
         itemsPending.add(ripUrlId);
@@ -655,6 +706,7 @@ public abstract class AbstractRipper
                     finished, url, shouldStop, itemsPending.size(), itemsCompleted.size(), itemsErrored.size(), itemsSkipped.size(), itemsTotal, itemsSeen);
             return finished;
         }, url);
+        ripService.saveAlbum(album);
         if (notifyComplete) {
             notifyComplete();
         }
@@ -776,6 +828,7 @@ public abstract class AbstractRipper
             RipStatusMessage msg = new RipStatusMessage(STATUS.RIP_COMPLETE, rsc);
             logger.debug("Sending RIP_COMPLETE: url: {}", getURL());
             observer.update(this, msg);
+            ripService.incrementFetchCount(album);
 
             // we do not care if the rollingfileappender is active,
             // just change the logfile in case
@@ -902,6 +955,7 @@ public abstract class AbstractRipper
         try {
             logger.info("Rip started: {}", getURL());
             rip();
+            ripService.saveAlbum(album);
         } catch (HttpStatusException e) {
             logger.error("Got exception while running ripper:", e);
             waitForRipperThreads(false);

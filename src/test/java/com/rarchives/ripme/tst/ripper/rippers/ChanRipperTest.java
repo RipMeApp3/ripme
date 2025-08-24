@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.rippers.ChanRipper;
 import com.rarchives.ripme.ripper.rippers.ripperhelpers.ChanSite;
 import com.rarchives.ripme.utils.Http;
@@ -31,7 +32,7 @@ public class ChanRipperTest extends RippersTest {
         for (URL url : passURLs) {
             ChanRipper ripper = new ChanRipper(url);
             // Use CompletableFuture to run setup() asynchronously
-            ripper.setup();
+            ripper.setup(new RipService(db));
             assert (ripper.canRip(url));
             Assertions.assertNotNull(ripper.getWorkingDir(),
                     "Ripper for " + url + " did not have a valid working directory.");

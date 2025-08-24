@@ -6,6 +6,7 @@ import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -14,12 +15,17 @@ import java.util.function.Predicate;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.rarchives.ripme.utils.RetryUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.tika.Tika;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.mime.MediaType;
 import org.jsoup.HttpStatusException;
 
+import com.rarchives.ripme.db.model.RemoteFile;
+import com.rarchives.ripme.db.model.SplitUrl;
 import com.rarchives.ripme.ui.RipStatusMessage.STATUS;
+import com.rarchives.ripme.utils.RetryUtil;
 import com.rarchives.ripme.utils.Utils;
 
 /**
@@ -30,6 +36,10 @@ class DownloadFileThread implements Runnable {
     private static final Logger logger = LogManager.getLogger(DownloadFileThread.class);
     private final TokenedUrlGetter tokenedUrlGetter; // Some URLs may be valid for a limited time. This should get a fresh url
     private final RipUrlId ripUrlId;
+
+    // Important: get a fresh RemoteFile after each tokenedUrlGetter.getTokenedUrl()
+    // to prevent overwriting data that might be populated from TokenedUrlGetter
+    private RemoteFile remoteFile;
 
     private String referrer = "";
     private Map<String, String> cookies = new HashMap<>();
@@ -71,7 +81,20 @@ class DownloadFileThread implements Runnable {
      */
     @Override
     public void run() {
+        try {
+            runReal();
+            if (remoteFile != null) {
+                observer.getRipService().saveRemoteFile(remoteFile);
+            }
+        } catch (Exception e) {
+            if (remoteFile != null) {
+                observer.getRipService().saveRemoteFile(remoteFile);
+            }
+            throw e;
+        }
+    }
 
+    public void runReal() {
         if (observer.isStopped()) {
             // TODO add handler for graceful stop
             observer.downloadErrored(ripUrlId, Utils.getLocalizedString("download.interrupted"));
@@ -85,6 +108,14 @@ class DownloadFileThread implements Runnable {
                 return observer.isStopped() || e instanceof ConnectException && "Connection refused".equals(e.getMessage());
             };
             url = RetryUtil.executeWithRetry(tokenedUrlGetter::getTokenedUrl, maxAttempts, Duration.ofSeconds(10), 1.2, shouldAttemptRetry);
+            URL urlNoQuery = SplitUrl.of(url).noQueryFragment();
+            try {
+                remoteFile = observer.getRipService().getRemoteFile(ripUrlId);
+                remoteFile.setUrl(urlNoQuery);
+            } catch (SQLException ignored) {
+                remoteFile = null;
+                // Bad, but continue to download
+            }
         } catch (HttpStatusException e) {
             observer.downloadErrored(ripUrlId, Utils.getLocalizedString("failed.to.get.url.for.0", ripUrlId));
             logger.error("[!] Failed to get URL for " + ripUrlId);
@@ -100,6 +131,10 @@ class DownloadFileThread implements Runnable {
         }
         // First thing we make sure the file name doesn't have any illegal chars in it
         filename = Utils.sanitizeSaveAs(filename);
+        if (remoteFile != null) {
+            remoteFile.setFilename(filename);
+        }
+
         if (AbstractRipper.shouldIgnoreExtension(url)) {
             observer.sendUpdate(STATUS.DOWNLOAD_SKIP, Utils.getLocalizedString("skipping.ignored.extension") + ": " + url.toExternalForm());
             return;
@@ -146,7 +181,7 @@ class DownloadFileThread implements Runnable {
             try {
                 logger.info("    Downloading file: " + url + (tries > 0 ? " Try #" + tries : ""));
 
-                String urlNoQuery = new URI(url.getProtocol(), url.getAuthority(), url.getPath(), null, null).toURL().toExternalForm();
+                String urlNoQuery = SplitUrl.of(url).noQueryFragment().toExternalForm();
                 observer.sendUpdate(STATUS.DOWNLOAD_STARTED, urlNoQuery);
 
                 // Setup HTTP request
@@ -237,9 +272,24 @@ class DownloadFileThread implements Runnable {
                 }
 
                 // Save file
-                InputStream bis;
-                bis = new BufferedInputStream(huc.getInputStream());
+                InputStream bis = TikaInputStream.get(huc.getInputStream());
 
+                // Detect mime type (new code supporting more types, including video)
+                Tika tika = new Tika();
+                String detectedMimeType = tika.detect(bis);
+                bis.reset();
+
+                MediaType parsedMimeType = MediaType.parse(detectedMimeType); // May include parameters; null if not parsed
+                MediaType baseMimeType;
+                if (parsedMimeType != null) {
+                    baseMimeType = parsedMimeType.getBaseType(); // No parameters
+                    if (remoteFile != null) {
+                        String lowerCaseMimeType = baseMimeType.toString();
+                        remoteFile.setMimeType(lowerCaseMimeType.toLowerCase());
+                    }
+                }
+
+                // TODO refactor old mime type code to use the Tika-detected type
                 // Check if we should get the file ext from the MIME type
                 if (getFileExtFromMIME) {
                     String fileExt = URLConnection.guessContentTypeFromStream(bis);
@@ -261,6 +311,9 @@ class DownloadFileThread implements Runnable {
                                     Utils.getLocalizedString("magic.number.was") + ": " + Arrays.toString(magicBytes));
                         }
                     }
+                }
+                if (remoteFile != null) {
+                    remoteFile.setFilename(saveAs.getName());
                 }
                 // If we're resuming a download we append data to the existing file
                 OutputStream fos = null;
@@ -382,6 +435,17 @@ class DownloadFileThread implements Runnable {
             // get fresh URL for the next attempt
             try {
                 url = tokenedUrlGetter.getTokenedUrl();
+                try {
+                    if (remoteFile == null) {
+                        remoteFile = observer.ripService.getRemoteFile(ripUrlId);
+                    }
+                    if (remoteFile != null) {
+                        remoteFile.setUrl(url);
+                        remoteFile.setFilename(saveAs.getName());
+                    }
+                } catch (SQLException e) {
+                    remoteFile = null;
+                }
             } catch (HttpStatusException e) {
                 observer.downloadErrored(ripUrlId, Utils.getLocalizedString("failed.to.get.url.for.0", ripUrlId));
                 logger.error("[!] Failed to get URL for " + ripUrlId);
@@ -394,6 +458,9 @@ class DownloadFileThread implements Runnable {
 
         } while (true);
         observer.downloadCompleted(ripUrlId, saveAs.toPath());
+        if (remoteFile != null) {
+            remoteFile.setFetched(true);
+        }
         logger.info("[+] Saved " + url + " as " + prettySaveAs);
     }
 

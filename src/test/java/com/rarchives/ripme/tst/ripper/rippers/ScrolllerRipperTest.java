@@ -1,5 +1,6 @@
 package com.rarchives.ripme.tst.ripper.rippers;
 
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.rippers.ScrolllerRipper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ public class ScrolllerRipperTest extends RippersTest {
         testURLs.put(new URI("https://scrolller.com/r/CatsStandingUp?filter=pictures&sort=top").toURL(), "CatsStandingUp");
         for (URL url : testURLs.keySet()) {
             ScrolllerRipper ripper = new ScrolllerRipper(url);
-            ripper.setup();
+            ripper.setup(new RipService(db));
             Assertions.assertEquals(testURLs.get(url), ripper.getGID(ripper.getURL()));
             deleteDir(ripper.getWorkingDir());
         }
@@ -44,7 +45,7 @@ public class ScrolllerRipperTest extends RippersTest {
         testURLs.put(new URI("https://scrolller.com/r/CatsStandingUp?filter=albums&sort=top").toURL(), "ALBUM");
         for (URL url : testURLs.keySet()) {
             ScrolllerRipper ripper = new ScrolllerRipper(url);
-            ripper.setup();
+            ripper.setup(new RipService(db));
             Assertions.assertEquals(testURLs.get(url), ripper.convertFilterString(ripper.getParameter(ripper.getURL(),"filter")));
             deleteDir(ripper.getWorkingDir());
         }

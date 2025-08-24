@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.rippers.ChanRipper;
+import com.rarchives.ripme.test.SQLiteTestBase;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -20,7 +22,7 @@ import com.rarchives.ripme.utils.Utils;
 /**
  * Contains helper methods for testing rippers.
  */
-public class RippersTest {
+public class RippersTest extends SQLiteTestBase {
 
     private final Logger logger = LogManager.getLogger(RippersTest.class);
 
@@ -36,7 +38,7 @@ public class RippersTest {
             // Decrease timeout
             Utils.setConfigInteger("page.timeout", 20 * 1000);
 
-            ripper.setup();
+            ripper.setup(new RipService(db));
             ripper.markAsTest();
             ripper.rip();
             if (logger.isTraceEnabled()) {
@@ -73,7 +75,7 @@ public class RippersTest {
             // Decrease timeout
             Utils.setConfigInteger("page.timeout", 20 * 1000);
 
-            ripper.setup();
+            ripper.setup(new RipService(db));
             ripper.markAsTest();
             List<String> foundUrls = ripper.getURLsFromPage(ripper.getFirstPage());
             Assertions.assertTrue(foundUrls.size() >= 1, "Failed to find single url on page " + ripper.getURL());

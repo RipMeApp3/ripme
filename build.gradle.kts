@@ -13,6 +13,8 @@ plugins {
   id("java")
   id("maven-publish")
   id("com.gradleup.shadow") version "9.0.0-rc1"
+  id("io.freefair.lombok") version "8.14.2"
+  id("org.flywaydb.flyway") version "11.1.1"
 }
 
 repositories {
@@ -21,6 +23,9 @@ repositories {
 }
 
 dependencies {
+  implementation("org.xerial:sqlite-jdbc:3.50.3.0")
+  implementation("org.flywaydb:flyway-core:11.1.1")
+  implementation("com.zaxxer:HikariCP:7.0.2")
   implementation("com.lmax:disruptor:3.4.4")
   implementation("org.java-websocket:Java-WebSocket:1.5.3")
   implementation("org.jsoup:jsoup:1.16.1")
@@ -98,6 +103,11 @@ publishing {
       from(components["java"])
     }
   }
+}
+
+flyway {
+    // Convenient for working on schema changes
+    url = "jdbc:sqlite:${projectDir}/ripme_dev.sqlite"
 }
 
 tasks.withType<JavaCompile> {

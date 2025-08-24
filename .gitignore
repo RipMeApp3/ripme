@@ -125,6 +125,8 @@ ripme.jar.update
 *.swp
 !LabelsBundle*.properties
 history.json
+ripme.sqlite
+ripme_dev.sqlite
 *.iml
 .settings/
 .classpath

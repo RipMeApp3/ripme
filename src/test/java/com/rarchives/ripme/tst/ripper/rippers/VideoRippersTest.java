@@ -7,6 +7,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.VideoRipper;
 import com.rarchives.ripme.ripper.rippers.video.PornhubRipper;
 import com.rarchives.ripme.ripper.rippers.video.YuvutuRipper;
@@ -25,7 +26,7 @@ public class VideoRippersTest extends RippersTest {
     private void videoTestHelper(VideoRipper ripper) {
         URL oldURL = ripper.getURL();
         try {
-            ripper.setup();
+            ripper.setup(new RipService(db));
             ripper.markAsTest();
             ripper.rip();
             // Video ripper testing is... weird.

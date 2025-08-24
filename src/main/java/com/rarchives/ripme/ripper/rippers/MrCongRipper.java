@@ -14,6 +14,10 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import com.rarchives.ripme.ripper.AbstractHTMLRipper;
+import com.rarchives.ripme.ripper.RipStatusException;
+import com.rarchives.ripme.ripper.SkipAlbumRipException;
+import com.rarchives.ripme.ui.RipStatusMessage;
+import com.rarchives.ripme.utils.Utils;
 import com.rarchives.ripme.utils.Http;
 
 public class MrCongRipper extends AbstractHTMLRipper {
@@ -202,7 +206,16 @@ public class MrCongRipper extends AbstractHTMLRipper {
 
                 for (String urlStr : ls) {
                     MrCongRipper mcr = new MrCongRipper(URI.create(urlStr).toURL());
-                    mcr.setup();
+                    try {
+                        mcr.setup(ripService);
+                    } catch (SkipAlbumRipException e) {
+                        if (e.getReason() == SkipAlbumRipException.Reason.KNOWN_REMOVED) {
+                            sendUpdate(RipStatusMessage.STATUS.DOWNLOAD_SKIP, Utils.getLocalizedString("skipping.known.removed.album.0", urlStr));
+                        }
+                        continue;
+                    } catch (RipStatusException ignored) {
+                        // TODO
+                    }
                     mcr.rip();
                 }
 

@@ -1,6 +1,9 @@
 package com.rarchives.ripme;
 
+import com.rarchives.ripme.db.DatabaseManager;
+import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.AbstractRipper;
+import com.rarchives.ripme.ripper.SkipAlbumRipException;
 import com.rarchives.ripme.ui.*;
 import com.rarchives.ripme.utils.Proxy;
 import com.rarchives.ripme.utils.RipUtils;
@@ -44,6 +47,7 @@ public class App {
     public static String stringToAppendToFoldername = null;
     private static final History HISTORY = new History();
     private static final DownloadedFilesLog downloadedFilesLog = new DownloadedFilesLog();
+    private static DatabaseManager db; // Instantiate in main() so unit tests can set it differently
 
     /**
      * Where everything starts. Takes in, and tries to parse as many commandline arguments as possible.
@@ -52,6 +56,7 @@ public class App {
      * @param args Array of command line arguments.
      */
     public static void main(String[] args) throws IOException {
+        db = new DatabaseManager("ripme.sqlite");
         CommandLine cl = getArgs(args);
 
         if (args.length > 0 && cl.hasOption('v')){
@@ -72,6 +77,9 @@ public class App {
         }
 
         if (GraphicsEnvironment.isHeadless() || args.length > 0) {
+            // GUI might want control over initialization to display a spinner,
+            // so initialize headless mode separately
+            db.initialize();
             downloadedFilesLog.load();
             handleArguments(args);
         } else {
@@ -92,6 +100,10 @@ public class App {
         }
     }
 
+    public static DatabaseManager getDb() { // TODO create dedicated db instance in MainWindow?
+        return db;
+    }
+
     public static DownloadedFilesLog getDownloadedFilesLog() {
         return downloadedFilesLog;
     }
@@ -104,7 +116,12 @@ public class App {
      */
     private static void rip(URL url) throws Exception {
         AbstractRipper ripper = AbstractRipper.getRipper(url);
-        ripper.setup();
+        RipService ripService = new RipService(db);
+        try {
+            ripper.setup(ripService);
+        } catch (SkipAlbumRipException e) {
+            return;
+        }
         ripper.rip();
 
         String u = ripper.getURL().toExternalForm();
