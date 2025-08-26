@@ -6,12 +6,15 @@ import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.rarchives.ripme.utils.RetryUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.HttpStatusException;
@@ -77,12 +80,16 @@ class DownloadFileThread implements Runnable {
 
         URL url = null;
         try {
-            url = tokenedUrlGetter.getTokenedUrl();
+            int maxAttempts = 5;
+            Predicate<Exception> shouldAttemptRetry = e -> {
+                return observer.isStopped() || e instanceof ConnectException && "Connection refused".equals(e.getMessage());
+            };
+            url = RetryUtil.executeWithRetry(tokenedUrlGetter::getTokenedUrl, maxAttempts, Duration.ofSeconds(10), 1.2, shouldAttemptRetry);
         } catch (HttpStatusException e) {
             observer.downloadErrored(ripUrlId, Utils.getLocalizedString("failed.to.get.url.for.0", ripUrlId));
             logger.error("[!] Failed to get URL for " + ripUrlId);
             return; // do not retry
-        } catch (IOException | URISyntaxException e) {
+        } catch (Exception e) {
             logger.error("[!] Failed to get URL for " + ripUrlId, e);
             observer.downloadErrored(ripUrlId, Utils.getLocalizedString("failed.to.get.url.for.0", ripUrlId));
             return; // do not retry
