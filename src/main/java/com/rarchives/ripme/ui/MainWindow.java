@@ -1168,7 +1168,9 @@ public final class MainWindow implements Runnable, RipStatusHandler {
             @Override
             public void intervalAdded(ListDataEvent arg0) {
                 updateQueue();
-                ripNextAlbum();
+                // TODO delete? Arranging queue without starting is nice.
+                //      AutoripThread already starts ripping when it queues something.
+                //ripNextAlbum();
             }
 
             @Override
