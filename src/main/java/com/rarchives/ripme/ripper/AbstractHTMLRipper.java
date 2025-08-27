@@ -33,6 +33,7 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
     private static final Logger logger = LogManager.getLogger(AbstractHTMLRipper.class);
 
     Document cachedFirstPage;
+    private long NEXT_PAGE_SLEEP_TIME_MS = Utils.getConfigInteger("scrape.next.page.sleep.ms", 200);
 
     protected AbstractHTMLRipper(URL url) throws IOException {
         super(url);
@@ -219,6 +220,7 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
 
             try {
                 sendUpdate(STATUS.LOADING_RESOURCE, "next page");
+                Utils.sleep(NEXT_PAGE_SLEEP_TIME_MS);
                 doc = getNextPage(doc);
             } catch (IOException e) {
                 logger.info("Can't get next page: " + e.getMessage());
