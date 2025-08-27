@@ -33,7 +33,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.text.*;
 
@@ -96,7 +95,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     private static final History HISTORY = new History();
     private static JPanel historyPanel;
     private static JTable historyTable;
-    private static AbstractTableModel historyTableModel;
+    private static HistoryTableModel historyTableModel;
     private static JButton historyButtonRemove, historyButtonClear, historyButtonRerip;
 
     // Queue
@@ -571,47 +570,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         historyPanel.setVisible(false);
         historyPanel.setPreferredSize(new Dimension(300, 250));
 
-        historyTableModel = new AbstractTableModel() {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            public String getColumnName(int col) {
-                return HISTORY.getColumnName(col);
-            }
-
-            @Override
-            public Class<?> getColumnClass(int c) {
-                return getValueAt(0, c).getClass();
-            }
-
-            @Override
-            public Object getValueAt(int row, int col) {
-                return HISTORY.getValueAt(row, col);
-            }
-
-            @Override
-            public int getRowCount() {
-                return HISTORY.toList().size();
-            }
-
-            @Override
-            public int getColumnCount() {
-                return HISTORY.getColumnCount();
-            }
-
-            @Override
-            public boolean isCellEditable(int row, int col) {
-                return (col == 0 || col == 5);
-            }
-
-            @Override
-            public void setValueAt(Object value, int row, int col) {
-                if (col == 5) {
-                    HISTORY.get(row).selected = (Boolean) value;
-                    historyTableModel.fireTableDataChanged();
-                }
-            }
-        };
+        historyTableModel = new HistoryTableModel(HISTORY);
 
         historyTable = new JTable(historyTableModel);
         historyTable.addMouseListener(new HistoryMenuMouseListener());

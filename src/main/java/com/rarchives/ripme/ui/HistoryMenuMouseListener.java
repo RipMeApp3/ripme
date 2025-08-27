@@ -5,10 +5,7 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-import javax.swing.AbstractAction;
-import javax.swing.Action;
-import javax.swing.JPopupMenu;
-import javax.swing.JTable;
+import javax.swing.*;
 
 import com.rarchives.ripme.utils.Utils;
 
@@ -22,9 +19,12 @@ class HistoryMenuMouseListener extends MouseAdapter {
         Action checkAllAction = new AbstractAction(Utils.getLocalizedString("history.check.all")) {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                for (int row = 0; row < tableComponent.getRowCount(); row++) {
-                    tableComponent.setValueAt(true, row, checkboxColumn);
+                HistoryTableModel model = (HistoryTableModel) tableComponent.getModel();
+                int[] allRows = new int[model.getRowCount()];
+                for (int i = 0; i < allRows.length; i++) {
+                    allRows[i] = i;
                 }
+                model.setValuesAt(true, allRows, checkboxColumn);
             }
         };
         popup.add(checkAllAction);
@@ -32,9 +32,12 @@ class HistoryMenuMouseListener extends MouseAdapter {
         Action uncheckAllAction = new AbstractAction(Utils.getLocalizedString("history.check.none")) {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                for (int row = 0; row < tableComponent.getRowCount(); row++) {
-                    tableComponent.setValueAt(false, row, checkboxColumn);
+                HistoryTableModel model = (HistoryTableModel) tableComponent.getModel();
+                int[] allRows = new int[model.getRowCount()];
+                for (int i = 0; i < allRows.length; i++) {
+                    allRows[i] = i;
                 }
+                model.setValuesAt(false, allRows, checkboxColumn);
             }
         };
         popup.add(uncheckAllAction);
@@ -44,9 +47,13 @@ class HistoryMenuMouseListener extends MouseAdapter {
         Action checkSelected = new AbstractAction(Utils.getLocalizedString("history.check.selected")) {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                for (int row : tableComponent.getSelectedRows()) {
-                    tableComponent.setValueAt(true, row, checkboxColumn);
+                int[] selectedRows = tableComponent.getSelectedRows();
+                int[] modelSelectedRows = new int[selectedRows.length];
+                for ( int i = 0; i < selectedRows.length; i++) {
+                    modelSelectedRows[i] = tableComponent.convertRowIndexToModel(selectedRows[i]);
                 }
+                HistoryTableModel model = (HistoryTableModel) tableComponent.getModel();
+                model.setValuesAt(true, modelSelectedRows, checkboxColumn);
             }
         };
         popup.add(checkSelected);
@@ -54,9 +61,13 @@ class HistoryMenuMouseListener extends MouseAdapter {
         Action uncheckSelected = new AbstractAction(Utils.getLocalizedString("history.uncheck.selected")) {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                for (int row : tableComponent.getSelectedRows()) {
-                    tableComponent.setValueAt(false, row, checkboxColumn);
+                int[] selectedRows = tableComponent.getSelectedRows();
+                int[] modelSelectedRows = new int[selectedRows.length];
+                for ( int i = 0; i < selectedRows.length; i++) {
+                    modelSelectedRows[i] = tableComponent.convertRowIndexToModel(selectedRows[i]);
                 }
+                HistoryTableModel model = (HistoryTableModel) tableComponent.getModel();
+                model.setValuesAt(false, modelSelectedRows, checkboxColumn);
             }
         };
         popup.add(uncheckSelected);
