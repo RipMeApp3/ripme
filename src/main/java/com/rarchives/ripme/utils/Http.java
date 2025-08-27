@@ -227,7 +227,7 @@ public class Http {
                 }
 
                 if (retrySleep > 0 && retries >= 0) {
-                    logger.warn("Error while loading " + url + " waiting "+ retrySleep + " ms before retrying.", e);
+                    logger.warn("Error while loading {} waiting {} ms before retrying. {}", url, retrySleep, e.getMessage());
                     Utils.sleep(retrySleep);
                 } else {
                     logger.warn("Error while loading " + url, e);
