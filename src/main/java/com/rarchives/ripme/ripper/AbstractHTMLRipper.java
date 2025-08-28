@@ -108,6 +108,7 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
     public void rip() throws IOException, URISyntaxException {
         int imageIndex = 0;
         int textindex = 0;
+        int pageIndex = 0;
         logger.info("Retrieving " + this.url);
         sendUpdate(STATUS.LOADING_RESOURCE, this.url.toExternalForm());
         var doc = getCachedFirstPage();
@@ -128,9 +129,8 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
         logger.info("Got doc location " + doc.location());
 
         while (doc != null) {
-
-            logger.info("Processing a doc...");
-
+            pageIndex++;
+            logger.info("Processing page #{} from {}", pageIndex, this.url);
             // catch if we saw a doc location already, save the ones seen in a list
             if (doclocation.contains(doc.location())) {
                 logger.info("Already processed location " + doc.location() + " breaking");
@@ -162,7 +162,7 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
 
                 for (String imageURL : imageURLs) {
                     imageIndex += 1;
-                    logger.debug("Found image url #{} of album {}: {}", imageIndex, this.url, imageURL);
+                    logger.debug("Found image url #{} on page #{} of album {}: {}", imageIndex, pageIndex, this.url, imageURL);
                     setItemsTotal(Math.max(getItemsTotal(), imageIndex));
                     downloadURL(new URI(imageURL).toURL(), imageIndex);
                     if (isStopped() || isThisATest()) {

@@ -60,11 +60,14 @@ public abstract class AbstractJSONRipper extends AbstractRipper {
     @Override
     public void rip() throws IOException, URISyntaxException {
         int imageIndex = 0;
+        int pageIndex = 0;
         logger.info("Retrieving " + this.url);
         sendUpdate(STATUS.LOADING_RESOURCE, this.url.toExternalForm());
         JSONObject json = getFirstPage();
 
         while (json != null) {
+            pageIndex++;
+            logger.info("Processing page #{} from {}", pageIndex, this.url);
             List<String> imageURLs = getURLsFromJSON(json);
 
             if (alreadyDownloadedUrls >= Utils.getConfigInteger("history.end_rip_after_already_seen", 1000000000) && !isThisATest()) {
@@ -89,7 +92,7 @@ public abstract class AbstractJSONRipper extends AbstractRipper {
                 }
 
                 imageIndex += 1;
-                logger.debug("Found image url #{} of album {}: {}", imageIndex, this.url, imageURL);
+                logger.debug("Found image url #{} on page #{} of album {}: {}", imageIndex, pageIndex, this.url, imageURL);
                 setItemsTotal(Math.max(getItemsTotal(), imageIndex));
                 downloadURL(new URI(imageURL).toURL(), imageIndex);
             }
