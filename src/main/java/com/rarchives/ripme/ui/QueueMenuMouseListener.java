@@ -26,12 +26,6 @@ class QueueMenuMouseListener extends MouseAdapter {
     private int dragSourceIndex;
 
     public QueueMenuMouseListener() {
-        updateUI();
-    }
-
-    public void updateUI() {
-        popup.removeAll();
-
         Action removeSelected = new AbstractAction(Utils.getLocalizedString("queue.remove.selected")) {
             @Override
             public void actionPerformed(ActionEvent ae) {
@@ -42,7 +36,7 @@ class QueueMenuMouseListener extends MouseAdapter {
                         queueListModel.removeElement(o);
                         o = queueList.getSelectedValue();
                     }
-                    updateUI();
+                    popup.setVisible(false);
                 }
             }
         };
@@ -54,7 +48,7 @@ class QueueMenuMouseListener extends MouseAdapter {
                 if (JOptionPane.showConfirmDialog(null, Utils.getLocalizedString("queue.remove.all.validation"), "RipMe",
                         JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     queueListModel.removeAllElements();
-                    updateUI();
+                    popup.setVisible(false);
                 }
             }
         };
@@ -69,7 +63,7 @@ class QueueMenuMouseListener extends MouseAdapter {
                 }
                 queueListModel.addAll(0, selectedElements);
                 queueList.setSelectionInterval(0, selectedElements.size() - 1);
-                updateUI();
+                popup.setVisible(false);
             }
         };
         popup.add(moveSelectedToTop);
@@ -83,7 +77,7 @@ class QueueMenuMouseListener extends MouseAdapter {
                 }
                 queueListModel.addAll(selectedElements);
                 queueList.setSelectionInterval(queueListModel.size() - selectedElements.size(), queueListModel.size() - 1);
-                updateUI();
+                popup.setVisible(false);
             }
         };
         popup.add(moveSelectedToBottom);
