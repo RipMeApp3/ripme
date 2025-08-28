@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
-import javax.swing.DefaultListModel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
@@ -22,7 +21,7 @@ import com.rarchives.ripme.utils.Utils;
 class QueueMenuMouseListener extends MouseAdapter {
     private JPopupMenu popup = new JPopupMenu();
     private JList<Object> queueList;
-    private DefaultListModel<Object> queueListModel;
+    private UniqueListModel<Object> queueListModel;
     private boolean mouseDragging = false;
     private int dragSourceIndex;
 
@@ -123,7 +122,7 @@ class QueueMenuMouseListener extends MouseAdapter {
         }
         if (SwingUtilities.isLeftMouseButton(e)) {
             queueList = (JList<Object>) e.getSource();
-            queueListModel = (DefaultListModel<Object>) queueList.getModel();
+            queueListModel = (UniqueListModel<Object>) queueList.getModel();
 
             dragSourceIndex = queueList.getSelectedIndex();
             mouseDragging = true;
@@ -142,7 +141,7 @@ class QueueMenuMouseListener extends MouseAdapter {
         }
         if (mouseDragging) {
             queueList = (JList<Object>) e.getSource();
-            queueListModel = (DefaultListModel<Object>) queueList.getModel();
+            queueListModel = (UniqueListModel<Object>) queueList.getModel();
             int currentIndex = queueList.locationToIndex(e.getPoint());
             if (currentIndex != dragSourceIndex) {
                 int dragTargetIndex = queueList.getSelectedIndex();
@@ -164,7 +163,7 @@ class QueueMenuMouseListener extends MouseAdapter {
             }
 
             queueList = (JList<Object>) e.getSource();
-            queueListModel = (DefaultListModel<Object>) queueList.getModel();
+            queueListModel = (UniqueListModel<Object>) queueList.getModel();
             queueList.requestFocus();
 
             int nx = e.getX();

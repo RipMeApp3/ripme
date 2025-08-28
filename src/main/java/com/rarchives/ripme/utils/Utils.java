@@ -184,15 +184,6 @@ public class Utils {
         config.addProperty(key, list);
     }
 
-    public static void setConfigList(String key, Enumeration<Object> enumeration) {
-        config.clearProperty(key);
-        List<Object> list = new ArrayList<>();
-        while (enumeration.hasMoreElements()) {
-            list.add(enumeration.nextElement());
-        }
-        config.addProperty(key, list);
-    }
-
     public static void saveConfig() {
         try {
             // Simple hack: saveConfig is called from debouncedSaveConfig.

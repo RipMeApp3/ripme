@@ -104,7 +104,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     // Queue
     public static JToggleButton optionQueue;
     private static JPanel queuePanel;
-    private static DefaultListModel<Object> queueListModel;
+    private static UniqueListModel<Object> queueListModel;
 
     // Configuration
     private static JToggleButton optionConfiguration;
@@ -181,7 +181,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     };
 
     private void updateQueue() {
-        Utils.setConfigList("queue", queueListModel.elements());
+        Utils.setConfigList("queue", queueListModel.getList());
         debouncedSaveConfig.run();
         MainWindow.optionQueue.setText(String.format("%s%s", Utils.getLocalizedString("queue"),
                 queueListModel.isEmpty() ? "" : "(" + queueListModel.size() + ")"));
@@ -623,7 +623,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         queuePanel = new JPanel(new GridBagLayout());
         queuePanel.setVisible(false);
         queuePanel.setPreferredSize(new Dimension(300, 250));
-        queueListModel = new DefaultListModel<>();
+        queueListModel = new UniqueListModel<>();
         JList<Object> queueList = new JList<>(queueListModel);
         queueList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         QueueMenuMouseListener queueMenuMouseListener = new QueueMenuMouseListener();
@@ -1445,7 +1445,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         }
 
         // Save current state of queue to configuration.
-        Utils.setConfigList("queue", queueListModel.elements());
+        Utils.setConfigList("queue", queueListModel.getList());
 
         boolean wasGracefulStop = gracefulStop.getAndSet(false);
         boolean wasPanicStop = gracefulStop.getAndSet(false);
@@ -1601,10 +1601,6 @@ public final class MainWindow implements Runnable, RipStatusHandler {
 
     public static JTextField getRipTextfield() {
         return ripTextfield;
-    }
-
-    public static DefaultListModel<Object> getQueueListModel() {
-        return queueListModel;
     }
 
     /**
