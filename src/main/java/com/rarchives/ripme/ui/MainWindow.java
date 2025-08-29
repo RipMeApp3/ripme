@@ -1702,7 +1702,8 @@ public final class MainWindow implements Runnable, RipStatusHandler {
             pendingValue.setText(Utils.bytesToHumanReadable(bytesTotal - bytesCompleted));
             completedValue.setText(Utils.bytesToHumanReadable(bytesCompleted));
             totalValue.setText(Utils.bytesToHumanReadable(bytesTotal));
-            currentlyRippingProgress.setValue(evt.ripper.getCompletionPercentage());
+            currentlyRippingProgress.setMaximum(bytesTotal);
+            currentlyRippingProgress.setValue(bytesCompleted);
         } else {
             int pendingCount = evt.ripper.getPendingCount();
             int activeCount = evt.ripper.getActiveCount(); // included in pendingCount
@@ -1714,7 +1715,8 @@ public final class MainWindow implements Runnable, RipStatusHandler {
             completedValue.setText(String.valueOf(completedCount));
             erroredValue.setText(String.valueOf(erroredCount));
             totalValue.setText(String.valueOf(totalCount));
-            currentlyRippingProgress.setValue(evt.ripper.getCompletionPercentage());
+            currentlyRippingProgress.setMaximum(totalCount);
+            currentlyRippingProgress.setValue(completedCount + erroredCount);
         }
 
         // Quick hack finish:

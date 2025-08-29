@@ -13,8 +13,16 @@ public class ProgressTextField extends JProgressBar {
     private final JTextField textField = new JTextField();
     private final JLabel valueLabel = new JLabel();
 
+    // JProgressBar uses BoundedRangeModel
+    // BoundedRangeModel uses int
+    // To represent a byte progress bar, we need long (max int is 2 GiB)
+    // I don't want to reimplement everything,
+    // so we'll map the real progress from 0 to Integer.MAX_VALUE
+    private long minimum = 0;
+    private long maximum = 100;
+
     public ProgressTextField() {
-        super(0, 100);
+        super(0, Integer.MAX_VALUE);
         setLayout(new BorderLayout());
 
         // Paint an empty string to reserve height for the text field
@@ -46,10 +54,41 @@ public class ProgressTextField extends JProgressBar {
 
     @Override
     public void setValue(int n) {
-        super.setValue(n);
-        int minimum = getMinimum();
-        // note: integer division
-        valueLabel.setText(100 * (n - minimum) / (getMaximum() - minimum) + "%");
+        setValue((long) n);
+    }
+
+    @Override
+    public void setMinimum(int n) {
+        setMinimum((long) n);
+    }
+
+    @Override
+    public void setMaximum(int n) {
+        setMaximum((long) n);
+    }
+
+    private void setMinimum(long n) {
+        if (this.minimum != n) {
+            this.minimum = n;
+            super.setMinimum(0); // Trigger any state changes
+        }
+    }
+
+    public void setMaximum(long n) {
+        if (this.maximum != n) {
+            this.maximum = n;
+            super.setMaximum(Integer.MAX_VALUE); // Trigger any state change events
+        }
+    }
+
+    public void setValue(long n) {
+        long progress = n - minimum;
+        long total = maximum - minimum;
+        double fraction = (double) Math.min(progress, total) / total; // Clamp max to 100%
+        double percent = 100 * fraction;
+        int mappedValue = (int) Math.min((Integer.MAX_VALUE * fraction), Integer.MAX_VALUE);
+        super.setValue(mappedValue);
+        valueLabel.setText((int) percent + "%");
     }
 
     public void setText(String t) {

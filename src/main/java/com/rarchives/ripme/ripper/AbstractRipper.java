@@ -942,13 +942,6 @@ public abstract class AbstractRipper
     }
 
     /**
-     * Get the completion percentage.
-     *
-     * @return Percentage complete
-     */
-    public abstract int getCompletionPercentage();
-
-    /**
      * Rips the album when the thread is invoked.
      */
     public void run() {

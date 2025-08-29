@@ -1,23 +1,18 @@
 package com.rarchives.ripme.ripper;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 
-import com.rarchives.ripme.ui.RipStatusMessage;
 import com.rarchives.ripme.ui.RipStatusMessage.STATUS;
 import com.rarchives.ripme.utils.Utils;
 
@@ -178,28 +173,6 @@ public abstract class AbstractJSONRipper extends AbstractRipper {
         }
         this.workingDir = wd.toFile();
         logger.info("Set working directory to: {}", this.workingDir);
-    }
-
-    /**
-     * @return
-     *      Integer between 0 and 100 defining the progress of the album rip.
-     */
-    @Override
-    public int getCompletionPercentage() {
-        double total = getTotalCount();
-        if (total == 0) {
-            return 0;
-        }
-        return (int) (100 * ( (itemsCompleted.size() + itemsErrored.size()) / total));
-    }
-
-    @Override
-    public int getPendingCount() {
-        DownloadThreadPool threadPool = getRipperThreadPool();
-        if (threadPool != null) {
-            return threadPool.getPendingThreadCount();
-        }
-        return itemsPending.size();
     }
 
 }

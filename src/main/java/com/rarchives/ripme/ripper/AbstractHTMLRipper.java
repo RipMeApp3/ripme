@@ -373,26 +373,4 @@ public abstract class AbstractHTMLRipper extends AbstractRipper {
         logger.debug("Set working directory to: " + this.workingDir);
     }
 
-    /**
-     * @return
-     *      Integer between 0 and 100 defining the progress of the album rip.
-     */
-    @Override
-    public int getCompletionPercentage() {
-        double total = getTotalCount();
-        if (total == 0) {
-            return 0;
-        }
-        return (int) (100 * ( (itemsCompleted.size() + itemsErrored.size()) / total));
-    }
-
-    @Override
-    public int getPendingCount() {
-        DownloadThreadPool threadPool = getRipperThreadPool();
-        if (threadPool != null) {
-            return threadPool.getPendingThreadCount();
-        }
-        return itemsPending.size();
-    }
-
 }

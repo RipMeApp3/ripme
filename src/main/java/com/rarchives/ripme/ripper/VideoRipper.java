@@ -1,13 +1,11 @@
 package com.rarchives.ripme.ripper;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
-import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -67,14 +65,6 @@ public abstract class VideoRipper extends AbstractRipper {
         }
 
         logger.debug("Set working directory to: " + workingDir);
-    }
-
-    /**
-     * @return Returns % of video done downloading.
-     */
-    @Override
-    public int getCompletionPercentage() {
-        return (int) (100 * (bytesCompleted / (float) bytesTotal));
     }
 
     /**
