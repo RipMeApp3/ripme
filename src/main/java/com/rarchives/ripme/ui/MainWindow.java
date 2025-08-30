@@ -104,6 +104,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     // Queue
     public static JToggleButton optionQueue;
     private static JPanel queuePanel;
+    private static JList<Object> queueList;
     private static UniqueListModel<Object> queueListModel;
 
     // Configuration
@@ -286,6 +287,12 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         statusLabel.setForeground(color);
         statusLabel.setText(text);
         pack();
+    }
+
+    public void selectQueueItem(String queueItem) {
+        if (queueListModel.contains(queueItem)) {
+            queueList.setSelectedValue(queueItem, true);
+        }
     }
 
     private void pack() {
@@ -624,7 +631,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         queuePanel.setVisible(false);
         queuePanel.setPreferredSize(new Dimension(300, 250));
         queueListModel = new UniqueListModel<>();
-        JList<Object> queueList = new JList<>(queueListModel);
+        queueList = new JList<>(queueListModel);
         queueList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         QueueMenuMouseListener queueMenuMouseListener = new QueueMenuMouseListener();
         queueList.addMouseListener(queueMenuMouseListener);
@@ -1640,6 +1647,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
             displayAndLogError("This URL is already in queue: " + url, Color.RED);
             statusWithColor("This URL is already in queue: " + url, Color.ORANGE);
             urlInQueue = true;
+            selectQueueItem(url);
         }
         return urlInQueue;
     }
