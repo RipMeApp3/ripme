@@ -350,6 +350,7 @@ public abstract class AbstractRipper
             return false;
         }
         itemsSeen.incrementAndGet();
+        boolean wasItemAlreadyPending = !itemsPending.add(ripUrlId);
 
         RemoteFile remoteFile = null;
         boolean wasRemoteFileInAlbum = false;
@@ -400,12 +401,13 @@ public abstract class AbstractRipper
         }
 
         if (!allowDuplicates()
-                && ( itemsPending.contains(ripUrlId)
+                && ( wasItemAlreadyPending
                 || itemsCompleted.containsKey(ripUrlId)
                 || itemsErrored.containsKey(ripUrlId) )) {
             // Item is already downloaded/downloading, skip it.
             // TODO print path if in itemsCompleted or itemsErrored
             logger.info("[!] Skipping " + ripUrlId + " -- already attempted: " + Utils.removeCWD(directory));
+            downloadSkipped(ripUrlId, "Skipping " + ripUrlId + " -- already attempted");
             return false;
         }
 
@@ -417,33 +419,36 @@ public abstract class AbstractRipper
                 url = tug.getTokenedUrl();
             } catch (IOException | URISyntaxException e) {
                 logger.error("Unable to get URL for {}", ripUrlId, e);
-                itemsErrored.put(ripUrlId, e.getMessage());
+                downloadErrored(ripUrlId, e.getMessage());
                 return false;
             }
             if (AbstractRipper.shouldIgnoreExtension(url)) {
-                sendUpdate(STATUS.DOWNLOAD_SKIP, Utils.getLocalizedString("skipping.ignored.extension") + ": " + url.toExternalForm());
+                downloadSkipped(ripUrlId, Utils.getLocalizedString("skipping.ignored.extension") + ": " + url.toExternalForm());
                 return false;
             }
             String text = url.toExternalForm() + System.lineSeparator();
             try {
                 Files.write(urlFile, text.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                itemsCompleted.put(ripUrlId, urlFile);
             } catch (IOException e) {
                 logger.error("Error while writing to " + urlFile, e);
+                downloadErrored(ripUrlId, "Error while writing to " + urlFile + ": " + e.getMessage());
                 return false;
             }
+            downloadCompleted(ripUrlId, urlFile);
             return true;
         }
         if (remoteFile != null && remoteFile.isRemoved()) {
             logger.info("File is known removed; not downloading {}", ripUrlId);
+            downloadSkipped(ripUrlId, "File is known removed; not downloading " + ripUrlId);
+            //downloadSkipped(ripUrlId, Utils.getLocalizedString("skipping.removed.file") + ": " + remoteFile.getFilename());
             return false;
         }
         if (remoteFile != null && remoteFile.isFetched() && wasRemoteFileInAlbum) {
             logger.info("File is already fetched for the album; not downloading {}", ripUrlId);
+            downloadSkipped(ripUrlId, "File is already fetched for the album; not downloading " + ripUrlId);
             return false;
         }
 
-        itemsPending.add(ripUrlId);
         DownloadFileThread dft = new DownloadFileThread(tug, ripUrlId, directory, filename, this, getFileExtFromMIME);
         if (referrer != null) {
             dft.setReferrer(referrer);
