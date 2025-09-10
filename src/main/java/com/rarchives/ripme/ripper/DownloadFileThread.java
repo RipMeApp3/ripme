@@ -18,8 +18,11 @@ import javax.net.ssl.HttpsURLConnection;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tika.Tika;
+import org.apache.tika.config.TikaConfig;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MimeTypeException;
+import org.apache.tika.mime.MimeTypes;
 import org.jsoup.HttpStatusException;
 
 import com.rarchives.ripme.db.model.RemoteFile;
@@ -34,6 +37,9 @@ import com.rarchives.ripme.utils.Utils;
  */
 class DownloadFileThread implements Runnable {
     private static final Logger logger = LogManager.getLogger(DownloadFileThread.class);
+
+    private static final MimeTypes MIME_REPO = TikaConfig.getDefaultConfig().getMimeRepository();
+
     private final TokenedUrlGetter tokenedUrlGetter; // Some URLs may be valid for a limited time. This should get a fresh url
     private final RipUrlId ripUrlId;
 
@@ -280,7 +286,7 @@ class DownloadFileThread implements Runnable {
                 bis.reset();
 
                 MediaType parsedMimeType = MediaType.parse(detectedMimeType); // May include parameters; null if not parsed
-                MediaType baseMimeType;
+                MediaType baseMimeType = null;
                 if (parsedMimeType != null) {
                     baseMimeType = parsedMimeType.getBaseType(); // No parameters
                     if (remoteFile != null) {
@@ -289,29 +295,20 @@ class DownloadFileThread implements Runnable {
                     }
                 }
 
-                // TODO refactor old mime type code to use the Tika-detected type
                 // Check if we should get the file ext from the MIME type
                 if (getFileExtFromMIME) {
-                    String fileExt = URLConnection.guessContentTypeFromStream(bis);
-                    if (fileExt != null) {
-                        fileExt = fileExt.replaceAll("image/", "");
-                        saveAs = new File(saveAs.toString() + "." + fileExt);
-                    } else {
-                        logger.error("Was unable to get content type from stream");
-                        // Try to get the file type from the magic number
-                        byte[] magicBytes = new byte[8];
-                        bis.read(magicBytes, 0, 5);
-                        bis.reset();
-                        fileExt = Utils.getEXTFromMagic(magicBytes);
-                        if (fileExt != null) {
-                            saveAs = new File(saveAs.toString() + "." + fileExt);
-                        } else {
-                            logger.error(Utils.getLocalizedString("was.unable.to.get.content.type.using.magic.number"));
-                            logger.error(
-                                    Utils.getLocalizedString("magic.number.was") + ": " + Arrays.toString(magicBytes));
+                    if (baseMimeType != null) {
+                        try {
+                            String extension = MIME_REPO.forName(baseMimeType.toString()).getExtension();
+                            saveAs = new File(saveAs + extension);
+                        } catch (MimeTypeException e) {
+                            logger.error(Utils.getLocalizedString("was.unable.to.detect.content.type"));
                         }
+                    } else {
+                        logger.error(Utils.getLocalizedString("was.unable.to.detect.content.type"));
                     }
                 }
+
                 if (remoteFile != null) {
                     remoteFile.setFilename(saveAs.getName());
                 }

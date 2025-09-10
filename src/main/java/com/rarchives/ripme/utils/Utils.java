@@ -62,7 +62,6 @@ public class Utils {
     private static final int SHORTENED_PATH_LENGTH = 12;
 
     private static final HashMap<String, HashMap<String, String>> cookieCache;
-    private static final HashMap<ByteBuffer, String> magicHash = new HashMap<>();
 
     private static PropertiesConfiguration config;
     private static ResourceBundle resourceBundle;
@@ -842,23 +841,6 @@ public class Utils {
     public static String getByteStatusText(int completionPercentage, int bytesCompleted, int bytesTotal) {
         return completionPercentage + "%  - " + Utils.bytesToHumanReadable(bytesCompleted) + " / "
                 + Utils.bytesToHumanReadable(bytesTotal);
-    }
-
-    public static String getEXTFromMagic(ByteBuffer magic) {
-        if (magicHash.isEmpty()) {
-            LOGGER.debug("initialising map");
-            initialiseMagicHashMap();
-        }
-        return magicHash.get(magic);
-    }
-
-    public static String getEXTFromMagic(byte[] magic) {
-        return getEXTFromMagic(ByteBuffer.wrap(magic));
-    }
-
-    private static void initialiseMagicHashMap() {
-        magicHash.put(ByteBuffer.wrap(new byte[]{-1, -40, -1, -37, 0, 0, 0, 0}), "jpeg");
-        magicHash.put(ByteBuffer.wrap(new byte[]{-119, 80, 78, 71, 13, 0, 0, 0}), "png");
     }
 
     // Checks if a file exists ignoring it's extension.

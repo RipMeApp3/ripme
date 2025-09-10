@@ -22,12 +22,6 @@ public class UtilsTest {
         LOGGER.warn("this is a warning messaage.");
     }
 
-    public void testGetEXTFromMagic()
-    {
-        Assertions.assertEquals("jpeg", Utils.getEXTFromMagic(new byte[] { -1, -40, -1, -37, 0, 0, 0, 0 }));
-        Assertions.assertEquals("png", Utils.getEXTFromMagic(new byte[] { -119, 80, 78, 71, 13, 0, 0, 0 }));
-    }
-
     public void testStripURLParameter() {
         Assertions.assertEquals("http://example.tld/image.ext",
                 Utils.stripURLParameter("http://example.tld/image.ext?param", "param"));
