@@ -55,16 +55,18 @@ class AutoripThread extends Thread {
         isRunning = true;
         try {
             while (isRunning) {
-                // Check clipboard
-                String clipboard = ClipboardUtils.getClipboardString();
-                if (clipboard != null) {
-                    Matcher m = rippableUrlPattern.matcher(clipboard);
-                    while (m.find()) {
-                        String url = m.group();
-                        if (!rippedURLs.contains(url)) {
-                            rippedURLs.add(url);
-                            // TODO Queue rip instead of just starting it
-                            MainWindow.ripAlbumStatic(url);
+                if (!MainWindow.appClipboardOwner.isAppOwner()) {
+                    // Check clipboard
+                    String clipboard = ClipboardUtils.getClipboardString();
+                    if (clipboard != null) {
+                        Matcher m = rippableUrlPattern.matcher(clipboard);
+                        while (m.find()) {
+                            String url = m.group();
+                            if (!rippedURLs.contains(url)) {
+                                rippedURLs.add(url);
+                                // TODO Queue rip instead of just starting it
+                                MainWindow.ripAlbumStatic(url);
+                            }
                         }
                     }
                 }

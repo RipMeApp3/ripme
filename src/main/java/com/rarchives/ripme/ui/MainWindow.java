@@ -2,6 +2,7 @@ package com.rarchives.ripme.ui;
 
 import java.awt.*;
 import java.awt.TrayIcon.MessageType;
+import java.awt.datatransfer.ClipboardOwner;
 import java.awt.event.*;
 import java.io.BufferedReader;
 import java.io.File;
@@ -145,6 +146,9 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     private static CheckboxMenuItem trayMenuAutorip;
 
     private static Image mainIcon;
+
+    // This should really be private with a getter, but can't decide where to put the getter in this file
+    public static final AppClipboardOwner appClipboardOwner = new AppClipboardOwner();
 
     private static Function<String, Boolean> addUserInputUrlToQueueStatic;
     private static Runnable ripNextAlbumStatic;
