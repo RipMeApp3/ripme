@@ -1,0 +1,82 @@
+@startuml
+
+hide circle
+left to right direction
+skinparam linetype ortho
+
+entity ripper {
+   ripper_id: integer
+   --
+   name: text
+   host: text
+}
+entity album {
+   album_id: integer
+   --
+   ripper_id: integer
+   gid: text
+   url: text
+   uploader: text
+   title: text
+   description: text
+   created_ts: integer
+   modified_ts: integer
+   fetch_count: integer
+   hidden: boolean
+   removed: boolean
+   last_fetch_ts: integer
+   inserted_ts: integer
+}
+entity remote_file {
+   remote_file_id: integer
+   --
+   ripper_id: integer
+   urlid: text
+   url_base: text
+   url_path: text
+   filename: text
+   mime_type_id: integer
+   title: text
+   description: text
+   uploaded_ts: integer
+   uploader: text
+   hidden: boolean
+   removed: boolean
+   fetched: boolean
+   ignored: boolean
+   inserted_ts: integer
+}
+entity map_album_remote_file {
+   album_id: integer
+   remote_file_id: integer
+}
+entity tag {
+   tag_id: integer
+   --
+   name: text
+}
+entity map_album_tag {
+   album_id: integer
+   tag_id: integer
+}
+entity map_remote_file_tag {
+   remote_file_id: integer
+   tag_id: integer
+}
+entity mime_type {
+   mime_type_id: integer
+   --
+   name: text
+}
+
+album                 }o--|| ripper
+ripper                ||--o{ remote_file
+album                 ||--o{ map_album_remote_file
+map_album_remote_file }o--|| remote_file
+mime_type             |o..|| remote_file
+album                 ||--o{ map_album_tag
+map_album_tag         }|--|| tag
+remote_file           ||--o{ map_remote_file_tag
+tag                   ||--|{ map_remote_file_tag
+
+@enduml
