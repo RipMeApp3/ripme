@@ -230,8 +230,9 @@ public class FlickrRipper extends AbstractHTMLRipper {
         }
         try {
             logger.info("Fetching: " + apiURL);
-            logger.info("Response: " + Http.url(pageURL).ignoreContentType().get().text());
-            return new JSONObject(Http.url(pageURL).ignoreContentType().get().text());
+            String body = Http.url(pageURL).ignoreContentType().get().text();
+            logger.info("Response: " + body);
+            return new JSONObject(body);
         } catch (IOException e) {
             logger.error("Unable to get api link " + apiURL + " is malformed");
             return null;
