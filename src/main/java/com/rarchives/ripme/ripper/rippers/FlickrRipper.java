@@ -230,7 +230,7 @@ public class FlickrRipper extends AbstractHTMLRipper {
         }
         try {
             logger.info("Fetching: " + apiURL);
-            String body = Http.url(pageURL).ignoreContentType().get().text();
+            String body = Http.url(pageURL).ignoreContentType().response().body();
             logger.info("Response: " + body);
             return new JSONObject(body);
         } catch (IOException e) {
