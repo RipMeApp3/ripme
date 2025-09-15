@@ -330,6 +330,9 @@ public class FlickrRipper extends AbstractHTMLRipper {
         String apiKey = getAPIKey(doc);
         int x = 1;
         while (true) {
+            if (isStopped()) {
+                return imageURLs;
+            }
             JSONObject jsonData = getJSON(String.valueOf(x), apiKey);
             if (jsonData.has("stat") && jsonData.getString("stat").equals("fail")) {
                 break;
@@ -363,6 +366,9 @@ public class FlickrRipper extends AbstractHTMLRipper {
                 logger.info(jsonData);
                 JSONArray pictures = rootData.getJSONArray("photo");
                 for (int i = 0; i < pictures.length(); i++) {
+                    if (isStopped()) {
+                        return imageURLs;
+                    }
                     logger.info(i);
                     JSONObject data = (JSONObject) pictures.get(i);
                     String flickrImageId = data.getString("id");
