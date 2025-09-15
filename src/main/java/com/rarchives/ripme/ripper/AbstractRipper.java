@@ -329,6 +329,13 @@ public abstract class AbstractRipper
         return addURLToDownload(tug, ripUrlId, directory, filename, referrer, cookies, getFileExtFromMIME);
     }
 
+    protected boolean addURLToDownload(URL url, RipUrlId ripUrlId) {
+        TokenedUrlGetter tug = () -> url;
+        Path workingDir = getWorkingDir().toPath();
+        String filename = null;
+        return addURLToDownload(tug, ripUrlId, workingDir, filename, null, null, false);
+    }
+
     protected boolean addURLToDownload(TokenedUrlGetter tug, RipUrlId ripUrlId) {
         Path workingDir = getWorkingDir().toPath();
         String filename = null;

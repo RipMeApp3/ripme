@@ -110,6 +110,19 @@ public class Utils {
     }
 
     /**
+     * For use in Optional.map()
+     * @param s String to parse to long
+     * @return Long if parsed, or null if not parsed
+     */
+    public static Long tryParseLong(String s) {
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
      * Get the root rips directory.
      *
      * @return Root directory to save rips to.
