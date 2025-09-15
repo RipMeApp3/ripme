@@ -36,7 +36,8 @@ public class FlickrRipper extends AbstractHTMLRipper {
 
     private enum UrlType {
         USER,
-        PHOTOSET
+        PHOTOSET,
+        GALLERY,
     }
 
     private class Album {
@@ -132,6 +133,10 @@ public class FlickrRipper extends AbstractHTMLRipper {
             case PHOTOSET:
                 method = "flickr.photosets.getPhotos";
                 idField = "photoset_id=" + album.id;
+                break;
+            case GALLERY:
+                method = "flickr.galleries.getPhotos";
+                idField = "gallery_id=" + album.id;
                 break;
             case USER:
                 method = "flickr.people.getPhotos";
@@ -244,6 +249,7 @@ public class FlickrRipper extends AbstractHTMLRipper {
 
         // User photostream:  https://www.flickr.com/photos/115858035@N04/
         // Album: https://www.flickr.com/photos/115858035@N04/sets/72157644042355643/
+        // Gallery: https://www.flickr.com/photos/shantanu_dutta/galleries/72157719881618264/
 
         final String domainRegex = "https?://[wm.]*flickr.com";
         final String userRegex = "[a-zA-Z0-9@_-]+";
@@ -252,6 +258,13 @@ public class FlickrRipper extends AbstractHTMLRipper {
         m = p.matcher(url);
         if (m.matches()) {
             return new Album(UrlType.PHOTOSET, m.group(2));
+        }
+
+        // Gallery
+        p = Pattern.compile("^" + domainRegex + "/photos/" + userRegex + "/(galleries)/([0-9]+)/?.*$");
+        m = p.matcher(url);
+        if (m.matches()) {
+            return new Album(UrlType.GALLERY, m.group(2));
         }
 
         // User photostream
@@ -297,8 +310,8 @@ public class FlickrRipper extends AbstractHTMLRipper {
 
         final String domainRegex = "https?://[wm.]*flickr.com";
         final String userRegex = "[a-zA-Z0-9@_-]+";
-        // Album
-        p = Pattern.compile("^" + domainRegex + "/photos/(" + userRegex + ")/(?:sets|albums)/([0-9]+)/?.*$");
+        // Album or Gallery
+        p = Pattern.compile("^" + domainRegex + "/photos/(" + userRegex + ")/(?:sets|albums|galleries)/([0-9]+)/?.*$");
         m = p.matcher(url.toExternalForm());
         if (m.matches()) {
             return m.group(1) + "_" + m.group(2);
@@ -357,7 +370,15 @@ public class FlickrRipper extends AbstractHTMLRipper {
                             .ifPresent(album::setDescription);
                     Optional.ofNullable(rootData.optString("title", null))
                             .ifPresent(album::setTitle);
+
+                    // Example user:
+                    //    "nsid" : "99999999@N06",
+                    //    "path_alias" : "shaxxxxx_xxxta",
+                    //    "username" : "SHAX XXXTA",
+                    //    "realname" : "SHAXXXXX XXXTA"
                     Optional.ofNullable(rootData.optString("ownername", null))
+                            .or(() -> Optional.ofNullable(jsonData.optJSONObject("user", null))
+                                    .flatMap(o -> Optional.ofNullable(o.optString("username", null))))
                             .ifPresent(album::setUploader);
                 }
 
@@ -376,6 +397,11 @@ public class FlickrRipper extends AbstractHTMLRipper {
 
                     // No need to make ripUrlId for every image size because we only download the largest
                     RipUrlId ripUrlId = new RipUrlId(getClass(), getHost(), flickrImageId);
+
+                    if ("video".equals(data.optString("media"))) {
+                        downloadErrored(ripUrlId, "Video is not supported by FlickrRipper yet");
+                        continue;
+                    }
 
                     RemoteFile remoteFile = null;
                     try {
