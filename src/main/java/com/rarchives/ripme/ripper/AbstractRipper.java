@@ -330,7 +330,7 @@ public abstract class AbstractRipper
         itemsSeen.incrementAndGet();
 
         // TODO wrap symlink path in option
-        if (App.getDownloadedFilesLog().exists(ripUrlId)) {
+        if (App.getDownloadedFilesLog().exists(ripUrlId) && !Utils.isWindows()) {
             // Item is already downloaded/downloading, skip it.
             File targetFile = App.getDownloadedFilesLog().get(ripUrlId);
             if (filename == null) {
