@@ -170,13 +170,11 @@ class DownloadFileThread implements Runnable {
         long bytesDownloaded = 0;
 
         boolean overwriteFile = Utils.getConfigBoolean("file.overwrite", false);
-        if (overwriteFile) {
-            if (saveAs.exists()) {
+        if (saveAs.exists()) {
+            if (overwriteFile) {
                 logger.info("[!] " + Utils.getLocalizedString("deleting.existing.file") + " " + prettySaveAs);
                 if (!saveAs.delete()) logger.error("could not delete existing file: " + saveAs.getAbsolutePath());
-            }
-        } else {
-            if (saveAs.exists()) {
+            } else {
                 logger.info("[!] " + Utils.getLocalizedString("skipping") + " " + url + " -- "
                         + Utils.getLocalizedString("file.already.exists") + ": " + prettySaveAs);
                 observer.downloadExists(ripUrlId, saveAs.toPath());
