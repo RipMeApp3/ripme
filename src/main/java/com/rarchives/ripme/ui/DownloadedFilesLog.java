@@ -42,7 +42,12 @@ public class DownloadedFilesLog {
     public void add(RipUrlId ripUrlId, File file) {
         ripUrlIds.put(ripUrlId, file);
         try (FileWriter fw = new FileWriter(DOWNLOADED_FILES_LOG, true)) {
-            fw.append("./").append(Utils.removeCWD(file.toPath())).append("\n");
+            String path = Utils.removeCWD(file.toPath());
+            if (!path.startsWith("/") && !path.startsWith("./") && !path.startsWith("../")) {
+                // Force ./ prefix on relative paths
+                path = "./" + path;
+            }
+            fw.append(path).append("\n");
         } catch (IOException e) {
             logger.error("Unable to append downloaded file to {}", DOWNLOADED_FILES_LOG, e);
         }
