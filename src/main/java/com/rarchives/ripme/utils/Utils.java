@@ -620,6 +620,7 @@ public class Utils {
         builder.add(builder.newAppender(consoleAppenderName, "CONSOLE")
                 .addAttribute("target", ConsoleAppender.Target.SYSTEM_OUT)
                 .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%-5level %c{1}: %msg%n%xEx"))
+                //.add(builder.newLayout("PatternLayout").addAttribute("pattern", "%-5level %F:%L .%M()  [%T]: %msg%n%xEx"))
         );
 
         RootLoggerComponentBuilder rootLogger = builder.newRootLogger(level);
@@ -633,6 +634,7 @@ public class Utils {
                     .addAttribute("fileName", "ripme.log")
                     .addAttribute("filePattern", "ripme-%d{yyyy-MM-dd}-%i.log.gz")
                     .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d %-5level %c{1}: %msg%n%xEx"))
+                    //.add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d %-5level %F:%L .%M() [%T]: %msg%n%xEx"))
                     .addComponent(builder.newComponent("Policies")
                             .addComponent(builder.newComponent("SizeBasedTriggeringPolicy").addAttribute("size", "20M")))
             );

@@ -838,7 +838,7 @@ public abstract class AbstractRipper
 
             RipStatusComplete rsc = new RipStatusComplete(workingDir.toPath(), getCount());
             RipStatusMessage msg = new RipStatusMessage(STATUS.RIP_COMPLETE, rsc);
-            logger.debug("Sending RIP_COMPLETE: url: {}", getURL());
+            //logger.debug("Sending RIP_COMPLETE: url: {}", getURL());
             observer.update(this, msg);
             ripService.incrementFetchCount(album);
 
