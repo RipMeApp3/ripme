@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
@@ -64,6 +65,9 @@ class DownloadFileThread implements Runnable {
     private final int retrySleep;
     private final double retryDelayMultiplier = 1.8;
 
+    private static final Semaphore staggeredStart = new Semaphore(1, true);
+    private final int staggeredStartMilliDelay = 200;
+
     public DownloadFileThread(TokenedUrlGetter tug, RipUrlId ripUrlId, Path directory, String filename, AbstractRipper observer, Boolean getFileExtFromMIME) {
         super();
         this.tokenedUrlGetter = tug;
@@ -109,6 +113,16 @@ class DownloadFileThread implements Runnable {
             // TODO add handler for graceful stop
             observer.downloadErrored(ripUrlId, Utils.getLocalizedString("download.interrupted"));
             return;
+        }
+
+        try {
+            staggeredStart.acquire();
+            Thread.sleep(staggeredStartMilliDelay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } finally {
+            staggeredStart.release();
         }
 
         URL url = null;
