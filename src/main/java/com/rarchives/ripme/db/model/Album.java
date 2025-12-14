@@ -29,6 +29,7 @@ public class Album {
     private boolean removed; // To be set by ripper
     private Instant lastFetchTs; // Automatically set by AlbumDao
     private Instant insertedTs; // Automatically set by AlbumDao
+    private Integer localRating; // Not used by RipMe; for arbitrary local use by other applications
     private Set<String> tags; // To be set by ripper
 
     public Set<String> getTags() {

@@ -14,11 +14,17 @@ class DatabaseManagerTest {
         // Keep the in-memory db alive with a persistent connection unused by the test
         try (Connection ignored = db.getConnection()) {
             db.initialize();
-            long migrationCount = 0;
+            String version = "";
             try (Connection connection = db.getConnection();
                  Statement stmt = connection.createStatement()) {
-                ResultSet resultSet = stmt.executeQuery("SELECT count(*) FROM flyway_schema_history");
-                migrationCount = resultSet.getLong(1);
+                ResultSet resultSet = stmt.executeQuery("""
+                        SELECT version
+                          FROM flyway_schema_history
+                         WHERE success = 1
+                         ORDER BY installed_rank DESC
+                         LIMIT 1
+                        """);
+                version = resultSet.getString(1);
             }
             //create table flyway_schema_history
             //(
@@ -37,7 +43,7 @@ class DatabaseManagerTest {
 
             // Manually update the test for each additional migration from scratch.
             // Worth manually updating to catch accidentally committed schema changes.
-            assertEquals(2, migrationCount, "Migration count should be 2");
+            assertEquals("005", version, "Schema version should be 005");
         }
     }
 }

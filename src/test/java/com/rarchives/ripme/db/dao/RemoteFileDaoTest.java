@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.sql.ResultSet;
+import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
@@ -58,6 +59,42 @@ class RemoteFileDaoTest extends SQLiteTestBase {
                 assertEquals("text/plain", rs.getString("name"));
             }
         });
+    }
+
+    @Test
+    @WithInMemoryDb
+    void save_insert_bytes_localRating_null() throws SQLException {
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+        RemoteFile remoteFile = new RemoteFile();
+        remoteFile.setRipperName("MyRipper");
+        remoteFile.setRipperHost("myripper");
+        remoteFile.setUrlId("MyUrlId");
+        remoteFile.setBytes(null);
+        remoteFile.setLocalRating(null);
+        remoteFileDao.save(remoteFile);
+
+        remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
+        assertEquals(1, remoteFile.getId());
+        assertNull(remoteFile.getBytes());
+        assertNull(remoteFile.getLocalRating());
+    }
+
+    @Test
+    @WithInMemoryDb
+    void save_insert_bytes_localRating_notNull() throws SQLException {
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+        RemoteFile remoteFile = new RemoteFile();
+        remoteFile.setRipperName("MyRipper");
+        remoteFile.setRipperHost("myripper");
+        remoteFile.setUrlId("MyUrlId");
+        remoteFile.setBytes(1024L);
+        remoteFile.setLocalRating(2);
+        remoteFileDao.save(remoteFile);
+
+        remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
+        assertEquals(1, remoteFile.getId());
+        assertEquals(1024L, remoteFile.getBytes());
+        assertEquals(2, remoteFile.getLocalRating());
     }
 
     @Test
@@ -262,6 +299,102 @@ class RemoteFileDaoTest extends SQLiteTestBase {
         remoteFileDao.save(remoteFile);
         remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
         assertEquals(Set.of(), remoteFile.getTags());
+    }
+
+    @Test
+    @WithInMemoryDb
+    void saveTags_ignoreLocal() throws SQLException {
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+        RemoteFile remoteFile = new RemoteFile();
+        remoteFile.setRipperName("MyRipper");
+        remoteFile.setRipperHost("myripper");
+        remoteFile.setFilename("file.txt");
+        remoteFile.setUrlId("MyUrlId");
+        remoteFileDao.save(remoteFile);
+        assertEquals(1, remoteFile.getId());
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                           INSERT INTO tag(name, local)
+                           VALUES ('usertag1', 1)
+                        RETURNING tag_id
+                        """);
+                int localTagId = rs1.getInt("tag_id");
+                assertEquals(1, localTagId);
+                stmt.execute("INSERT INTO map_remote_file_tag(remote_file_id, tag_id) VALUES (1, 1)");
+            }
+        });
+        // All RemoteFile.tags in RipMe are remote tags, not local tags
+        remoteFile.setTags(Set.of("tag1", "tag2", "tag3"));
+        remoteFileDao.save(remoteFile);
+
+        remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
+        assertEquals(Set.of("tag1", "tag2", "tag3"), remoteFile.getTags());
+        // local tags are preserved
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                        SELECT t.name
+                          FROM tag t
+                          JOIN map_remote_file_tag mrft ON mrft.tag_id = t.tag_id
+                         WHERE t.local = 1
+                           AND mrft.remote_file_id = 1
+                        """);
+                String localTagName = rs1.getString("name");
+                assertEquals("usertag1", localTagName);
+            }
+        });
+    }
+
+    @Test
+    @WithInMemoryDb
+    void deleteTags_ignoreLocal() throws SQLException {
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+        RemoteFile remoteFile = new RemoteFile();
+        remoteFile.setRipperName("MyRipper");
+        remoteFile.setRipperHost("myripper");
+        remoteFile.setFilename("file.txt");
+        remoteFile.setUrlId("MyUrlId");
+        remoteFileDao.save(remoteFile);
+        assertEquals(1, remoteFile.getId());
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                           INSERT INTO tag(name, local)
+                           VALUES ('usertag1', 1)
+                        RETURNING tag_id
+                        """);
+                int localTagId = rs1.getInt("tag_id");
+                assertEquals(1, localTagId);
+                stmt.execute("INSERT INTO map_remote_file_tag(remote_file_id, tag_id) VALUES (1, 1)");
+            }
+        });
+        // All RemoteFile.tags in RipMe are remote tags, not local tags
+        remoteFile.setTags(Set.of("tag1", "tag2", "tag3"));
+        remoteFileDao.save(remoteFile);
+
+        remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
+        assertEquals(Set.of("tag1", "tag2", "tag3"), remoteFile.getTags());
+        remoteFile.setTags(Set.of()); // Delete remote tags
+        remoteFileDao.save(remoteFile);
+
+        remoteFile = remoteFileDao.findById(remoteFile.getId()).get();
+        assertEquals(Set.of(), remoteFile.getTags());
+
+        // local tags are preserved
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                        SELECT t.name
+                          FROM tag t
+                          JOIN map_remote_file_tag mrft ON mrft.tag_id = t.tag_id
+                         WHERE t.local = 1
+                           AND mrft.remote_file_id = 1
+                        """);
+                String localTagName = rs1.getString("name");
+                assertEquals("usertag1", localTagName);
+            }
+        });
     }
 
 }

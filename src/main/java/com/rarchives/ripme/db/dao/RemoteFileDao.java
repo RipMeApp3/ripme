@@ -45,6 +45,8 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                          , removed
                          , fetched
                          , ignored
+                         , bytes
+                         , local_rating
                          , inserted_ts
                       FROM remote_file
                       JOIN ripper ON remote_file.ripper_id = ripper.ripper_id
@@ -55,7 +57,7 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         RemoteFile remoteFile = map(rs);
-                        remoteFile.setTags(getTagsForFile(conn, id));
+                        remoteFile.setTags(getRemoteTagsForRemoteFile(conn, id));
                         return Optional.of(remoteFile);
                     }
                 }
@@ -87,6 +89,8 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                          , removed
                          , fetched
                          , ignored
+                         , bytes
+                         , local_rating
                          , inserted_ts
                       FROM remote_file
                       JOIN ripper ON remote_file.ripper_id = ripper.ripper_id
@@ -104,7 +108,7 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         RemoteFile remoteFile = map(rs);
-                        remoteFile.setTags(getTagsForFile(conn, remoteFile.getId()));
+                        remoteFile.setTags(getRemoteTagsForRemoteFile(conn, remoteFile.getId()));
                         return Optional.of(remoteFile);
                     }
                 }
@@ -144,33 +148,36 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
         remoteFile.setRemoved(rs.getBoolean("removed"));
         remoteFile.setFetched(rs.getBoolean("fetched"));
         remoteFile.setIgnored(rs.getBoolean("ignored"));
+        remoteFile.setBytes(rs.getObject("bytes") == null ? null : rs.getLong("bytes")); // nullable
+        remoteFile.setLocalRating(rs.getObject("local_rating") == null ? null : rs.getInt("local_rating")); // nullable
         remoteFile.setInsertedTs(insertedTs);
         return remoteFile;
     }
 
-    private Set<String> getTagsForFile(long id) throws SQLException {
+    private Set<String> getRemoteTagsForRemoteFile(long id) throws SQLException {
         return db.withConnection(conn -> {
-            Set<String> tags = getTagsForFile(conn, id);
+            Set<String> tags = getRemoteTagsForRemoteFile(conn, id);
             return tags;
         });
     }
 
     /**
-     * Get tags within a transaction
+     * Get remote tags within a transaction
      * @param conn The connection of the transaction
      * @param id The remote_file_id
      * @return The tags
      * @throws SQLException On issue with preparing statement, executing the query, or getting the row
      */
-    private Set<String> getTagsForFile(Connection conn, long id) throws SQLException {
+    private Set<String> getRemoteTagsForRemoteFile(Connection conn, long id) throws SQLException {
         Set<String> tags = new HashSet<>();
         try (PreparedStatement stmt = conn.prepareStatement("""
-                    SELECT name
-                      FROM map_remote_file_tag
-                      INNER JOIN tag
-                              ON tag.tag_id = map_remote_file_tag.tag_id
-                     WHERE remote_file_id = ?
-                    """)) {
+                SELECT name
+                  FROM map_remote_file_tag
+                  INNER JOIN tag
+                          ON tag.tag_id = map_remote_file_tag.tag_id
+                 WHERE remote_file_id = ?
+                   AND tag.local = 0
+                """)) {
             stmt.setLong(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -222,8 +229,10 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                                            , hidden
                                            , removed
                                            , fetched
-                                           , ignored)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                           , ignored
+                                           , bytes
+                                           , local_rating)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 -- sqlite does not support multiple ON CONFLICT, so do not use
                 -- ON CONFLICT (ripper_id, urlid) ... ON CONFLICT (ripper_id, url_base, url_path)
                        ON CONFLICT DO UPDATE
@@ -245,6 +254,8 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                         , removed      = COALESCE(EXCLUDED.removed, remote_file.removed)
                         , fetched      = COALESCE(EXCLUDED.fetched, remote_file.fetched)
                         , ignored      = COALESCE(EXCLUDED.ignored, remote_file.ignored)
+                        , bytes        = COALESCE(EXCLUDED.bytes, remote_file.bytes)
+                        , local_rating = COALESCE(EXCLUDED.local_rating, remote_file.local_rating)
                 RETURNING remote_file_id, inserted_ts
                 """;
         db.withConnection(conn -> {
@@ -316,6 +327,16 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                     stmt3.setBoolean(++i, remoteFile.isRemoved());
                     stmt3.setBoolean(++i, remoteFile.isFetched());
                     stmt3.setBoolean(++i, remoteFile.isIgnored());
+                    if (remoteFile.getBytes() == null) {
+                        stmt3.setNull(++i, Types.BIGINT);
+                    } else {
+                        stmt3.setLong(++i, remoteFile.getBytes());
+                    }
+                    if (remoteFile.getLocalRating() == null) {
+                        stmt3.setNull(++i, Types.INTEGER);
+                    } else {
+                        stmt3.setInt(++i, remoteFile.getLocalRating());
+                    }
 
                     long remoteFileId;
                     Instant insertedTs;
@@ -324,7 +345,7 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                         insertedTs = Instant.ofEpochMilli(resultSet2.getLong("inserted_ts"));
                     }
 
-                    saveRemoteFileTags(conn, remoteFileId, remoteFile);
+                    saveRemoteFileRemoteTags(conn, remoteFileId, remoteFile);
 
                     conn.commit();
                     remoteFile.setId(remoteFileId);
@@ -338,13 +359,13 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
         });
     }
 
-    private void saveRemoteFileTags(Connection conn, long remoteFileId, RemoteFile remoteFile) throws SQLException {
+    private void saveRemoteFileRemoteTags(Connection conn, long remoteFileId, RemoteFile remoteFile) throws SQLException {
         Set<String> newTags = remoteFile.getTags();
         if (newTags == null || newTags.isEmpty()) {
-            deleteAllTagsForRemoteFile(conn, remoteFileId);
+            deleteAllRemoteTagsForRemoteFile(conn, remoteFileId);
             return;
         }
-        Set<String> oldTags = getTagsForFile(conn, remoteFileId);
+        Set<String> oldTags = getRemoteTagsForRemoteFile(conn, remoteFileId);
 
         HashSet<String> tagsToAdd = new HashSet<>(newTags);
         tagsToAdd.removeAll(oldTags);
@@ -352,24 +373,33 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
         tagsToRemove.removeAll(newTags);
 
         if (!tagsToAdd.isEmpty()) {
-            insertTagsForRemoteFile(conn, remoteFileId, tagsToAdd);
+            insertRemoteTagsForRemoteFile(conn, remoteFileId, tagsToAdd);
         }
         if (!tagsToRemove.isEmpty()) {
-            deleteTagsForRemoteFile(conn, remoteFileId, tagsToRemove);
+            deleteRemoteTagsForRemoteFile(conn, remoteFileId, tagsToRemove);
         }
 
     }
 
-    private void deleteAllTagsForRemoteFile(Connection conn, long remoteFileId) throws SQLException {
-        String sql = "DELETE FROM map_remote_file_tag WHERE remote_file_id = ?";
+    private void deleteAllRemoteTagsForRemoteFile(Connection conn, long remoteFileId) throws SQLException {
+        String sql = """
+            DELETE
+              FROM map_remote_file_tag
+             WHERE remote_file_id = ?
+               AND tag_id IN (
+                 SELECT tag_id
+                   FROM tag
+                  WHERE local = 0
+                             )
+            """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setLong(1, remoteFileId);
             stmt.executeUpdate();
         }
     }
 
-    private void insertTagsForRemoteFile(Connection conn, long remoteFileId, HashSet<String> tags) throws SQLException {
-        String insertTags = "INSERT INTO tag (name) VALUES (?) ON CONFLICT DO NOTHING";
+    private void insertRemoteTagsForRemoteFile(Connection conn, long remoteFileId, HashSet<String> tags) throws SQLException {
+        String insertTags = "INSERT INTO tag (name, local) VALUES (?, 0) ON CONFLICT DO NOTHING";
         try (PreparedStatement stmt = conn.prepareStatement(insertTags)) {
             for (String tag : tags) {
                 stmt.setString(1, tag);
@@ -382,6 +412,8 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
                 SELECT ?, tag_id
                   FROM tag
                  WHERE tag.name = ?
+                   AND tag.local = 0
+                    ON CONFLICT DO NOTHING
                 """;
         try (PreparedStatement stmt = conn.prepareStatement(insertRemoteFileTags)) {
             for (String tag : tags) {
@@ -393,17 +425,17 @@ public class RemoteFileDao extends BaseDao<RemoteFile> {
         }
     }
 
-    private void deleteTagsForRemoteFile(Connection conn, long remoteFileId, HashSet<String> tags) throws SQLException {
+    private void deleteRemoteTagsForRemoteFile(Connection conn, long remoteFileId, HashSet<String> tags) throws SQLException {
         String sql = """
                 DELETE
                   FROM map_remote_file_tag
                  WHERE remote_file_id = ?
-                   AND tag_id IN
-                       (
-                           SELECT tag_id
-                             FROM tag
-                            WHERE tag.name = ?
-                       )
+                   AND tag_id IN (
+                     SELECT tag_id
+                       FROM tag
+                      WHERE tag.name = ?
+                        AND tag.local = 0
+                                 )
                 """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             for (String tag : tags) {

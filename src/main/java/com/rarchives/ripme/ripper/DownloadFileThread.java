@@ -473,7 +473,7 @@ class DownloadFileThread implements Runnable {
             } else {
                 long delay = (long) (retrySleep * Math.pow(retryDelayMultiplier, tries));
                 if (delay > 0) {
-                    logger.info("Retry: backing off for {}", Duration.ofMillis(delay));
+                    logger.info("Retry: backing off for {}: {}", Duration.ofMillis(delay), ripUrlId);
                     try {
                         TimeUnit.MILLISECONDS.sleep(delay);
                     } catch (InterruptedException e) {
@@ -516,6 +516,7 @@ class DownloadFileThread implements Runnable {
         observer.downloadCompleted(ripUrlId, saveAs.toPath());
         if (remoteFile != null) {
             remoteFile.setFetched(true);
+            remoteFile.setBytes(saveAs.length());
         }
         logger.info("[+] Saved " + url + " as " + prettySaveAs);
     }

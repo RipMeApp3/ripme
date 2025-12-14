@@ -146,9 +146,14 @@ public class DatabaseManager {
     }
 
     public void initialize() {
+        SQLiteDataSource sqliteMigrateDs = getSQLiteDataSource();
+        // Foreign keys need to be off or else ON DELETE CASCADE etc. will trigger,
+        // but Flyway doesn't support PRAGMA foreign_keys=OFF; in migration scripts,
+        // so set it here.
+        sqliteMigrateDs.getConfig().setPragma(SQLiteConfig.Pragma.FOREIGN_KEYS, "OFF");
         Flyway flyway = Flyway.configure()
                 // Don't bother pooling for flyway
-                .dataSource(getSQLiteDataSource())
+                .dataSource(sqliteMigrateDs)
                 .loggers("log4j2") // some library transitively pulls in slf4j
                 .locations("db/migration")
                 .load();

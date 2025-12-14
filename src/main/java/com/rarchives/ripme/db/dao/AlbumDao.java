@@ -39,6 +39,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
+                         , local_rating
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -50,7 +51,7 @@ public class AlbumDao extends BaseDao<Album> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         Album album = map(rs);
-                        album.setTags(getTagsForAlbum(conn, id));
+                        album.setTags(getRemoteTagsForAlbum(conn, id));
                         return Optional.of(album);
                     }
                 }
@@ -75,6 +76,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
+                         , local_rating
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -95,7 +97,7 @@ public class AlbumDao extends BaseDao<Album> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         Album album = map(rs);
-                        album.setTags(getTagsForAlbum(conn, album.getId()));
+                        album.setTags(getRemoteTagsForAlbum(conn, album.getId()));
                         return Optional.of(album);
                     }
                 }
@@ -120,6 +122,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
+                         , local_rating
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -136,7 +139,7 @@ public class AlbumDao extends BaseDao<Album> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         Album album = map(rs);
-                        album.setTags(getTagsForAlbum(conn, album.getId()));
+                        album.setTags(getRemoteTagsForAlbum(conn, album.getId()));
                         return Optional.of(album);
                     }
                 }
@@ -161,6 +164,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
+                         , local_rating
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -176,7 +180,7 @@ public class AlbumDao extends BaseDao<Album> {
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         Album album = map(rs);
-                        album.setTags(getTagsForAlbum(conn, album.getId()));
+                        album.setTags(getRemoteTagsForAlbum(conn, album.getId()));
                         return Optional.of(album);
                     }
                 }
@@ -213,34 +217,36 @@ public class AlbumDao extends BaseDao<Album> {
         album.setFetchCount(rs.getInt("fetch_count"));
         album.setHidden(rs.getBoolean("hidden"));
         album.setRemoved(rs.getBoolean("removed"));
+        album.setLocalRating(rs.getObject("local_rating") == null ? null : rs.getInt("local_rating")); // nullable
         album.setLastFetchTs(lastFetchTs);
         album.setInsertedTs(insertedTs);
         return album;
     }
 
-    private Set<String> getTagsForAlbum(long id) throws SQLException {
+    private Set<String> getRemoteTagsForAlbum(long id) throws SQLException {
         return db.withConnection(conn -> {
-            Set<String> tags = getTagsForAlbum(conn, id);
+            Set<String> tags = getRemoteTagsForAlbum(conn, id);
             return tags;
         });
     }
 
     /**
-     * Get tags within a transaction
+     * Get remote tags within a transaction
      * @param conn The connection of the transaction
      * @param id The album_id
      * @return The tags
      * @throws SQLException On issue with preparing statement, executing the query, or getting the row
      */
-    private Set<String> getTagsForAlbum(Connection conn, long id) throws SQLException {
+    private Set<String> getRemoteTagsForAlbum(Connection conn, long id) throws SQLException {
         Set<String> tags = new HashSet<>();
         try (PreparedStatement stmt = conn.prepareStatement("""
-                    SELECT name
-                      FROM map_album_tag
-                      INNER JOIN tag
-                              ON tag.tag_id = map_album_tag.tag_id
-                     WHERE album_id = ?
-                    """)) {
+                SELECT name
+                  FROM map_album_tag
+                  INNER JOIN tag
+                          ON tag.tag_id = map_album_tag.tag_id
+                 WHERE album_id = ?
+                   AND tag.local = 0
+                """)) {
             stmt.setLong(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -278,8 +284,9 @@ public class AlbumDao extends BaseDao<Album> {
                                      , fetch_count
                                      , hidden
                                      , removed
+                                     , local_rating
                                      , last_fetch_ts)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 -- sqlite does not support multiple ON CONFLICT, so do not use
                 -- ON CONFLICT (ripper_id, gid) ... ON CONFLICT (ripper_id, url)
                        ON CONFLICT DO UPDATE
@@ -294,6 +301,7 @@ public class AlbumDao extends BaseDao<Album> {
                         , fetch_count   = COALESCE(EXCLUDED.fetch_count, album.fetch_count)
                         , hidden        = COALESCE(EXCLUDED.hidden, album.hidden)
                         , removed       = COALESCE(EXCLUDED.removed, album.removed)
+                        , local_rating  = COALESCE(EXCLUDED.local_rating, album.local_rating)
                         , last_fetch_ts = CASE
                                               WHEN EXCLUDED.fetch_count > album.fetch_count THEN UNIXEPOCH('subsec') * 1000
                                               ELSE album.last_fetch_ts END
@@ -332,6 +340,11 @@ public class AlbumDao extends BaseDao<Album> {
                     stmt2.setInt(++i, album.getFetchCount());
                     stmt2.setBoolean(++i, album.isHidden());
                     stmt2.setBoolean(++i, album.isRemoved());
+                    if (album.getLocalRating() == null) {
+                        stmt2.setNull(++i, Types.INTEGER);
+                    } else {
+                        stmt2.setInt(++i, album.getLocalRating());
+                    }
                     if (album.getFetchCount() > 0) {
                         stmt2.setLong(++i, Instant.now().toEpochMilli());
                     } else {
@@ -347,7 +360,7 @@ public class AlbumDao extends BaseDao<Album> {
                         insertedTs = Instant.ofEpochMilli(resultSet2.getLong("inserted_ts"));
                     }
 
-                    saveAlbumTags(conn, albumId, album);
+                    saveAlbumRemoteTags(conn, albumId, album);
 
                     conn.commit();
                     album.setId(albumId);
@@ -493,13 +506,13 @@ public class AlbumDao extends BaseDao<Album> {
         });
     }
 
-    private void saveAlbumTags(Connection conn, long albumId, Album album) throws SQLException {
+    private void saveAlbumRemoteTags(Connection conn, long albumId, Album album) throws SQLException {
         Set<String> newTags = album.getTags();
         if (newTags == null || newTags.isEmpty()) {
-            deleteAllTagsForAlbum(conn, albumId);
+            deleteAllRemoteTagsForAlbum(conn, albumId);
             return;
         }
-        Set<String> oldTags = getTagsForAlbum(conn, albumId);
+        Set<String> oldTags = getRemoteTagsForAlbum(conn, albumId);
 
         HashSet<String> tagsToAdd = new HashSet<>(newTags);
         tagsToAdd.removeAll(oldTags);
@@ -507,23 +520,32 @@ public class AlbumDao extends BaseDao<Album> {
         tagsToRemove.removeAll(newTags);
 
         if (!tagsToAdd.isEmpty()) {
-            insertTagsForAlbum(conn, albumId, tagsToAdd);
+            insertRemoteTagsForAlbum(conn, albumId, tagsToAdd);
         }
         if (!tagsToRemove.isEmpty()) {
-            deleteTagsForAlbum(conn, albumId, tagsToRemove);
+            deleteRemoteTagsForAlbum(conn, albumId, tagsToRemove);
         }
     }
 
-    private void deleteAllTagsForAlbum(Connection conn, long albumId) throws SQLException {
-        String sql = "DELETE FROM map_album_tag WHERE album_id = ?";
+    private void deleteAllRemoteTagsForAlbum(Connection conn, long albumId) throws SQLException {
+        String sql = """
+            DELETE
+              FROM map_album_tag
+             WHERE album_id = ?
+               AND tag_id IN (
+                 SELECT tag_id
+                   FROM tag
+                  WHERE local = 0
+                             )
+            """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setLong(1, albumId);
             stmt.executeUpdate();
         }
     }
 
-    private void insertTagsForAlbum(Connection conn, long albumId, Set<String> tags) throws SQLException {
-        String insertTags = "INSERT INTO tag (name) VALUES (?) ON CONFLICT DO NOTHING";
+    private void insertRemoteTagsForAlbum(Connection conn, long albumId, Set<String> tags) throws SQLException {
+        String insertTags = "INSERT INTO tag (name, local) VALUES (?, 0) ON CONFLICT DO NOTHING";
         try (PreparedStatement stmt = conn.prepareStatement(insertTags)) {
             for (String tag : tags) {
                 stmt.setString(1, tag);
@@ -536,6 +558,8 @@ public class AlbumDao extends BaseDao<Album> {
                 SELECT ?, tag_id
                   FROM tag
                  WHERE tag.name = ?
+                   AND tag.local = 0
+                    ON CONFLICT DO NOTHING
                 """;
         try (PreparedStatement stmt = conn.prepareStatement(insertAlbumTags)) {
             for (String tag : tags) {
@@ -547,7 +571,7 @@ public class AlbumDao extends BaseDao<Album> {
         }
     }
 
-    private void deleteTagsForAlbum(Connection conn, long albumId, Set<String> tags) throws SQLException {
+    private void deleteRemoteTagsForAlbum(Connection conn, long albumId, Set<String> tags) throws SQLException {
         String sql = """
                 DELETE
                   FROM map_album_tag
@@ -556,6 +580,7 @@ public class AlbumDao extends BaseDao<Album> {
                      SELECT tag_id
                        FROM tag
                       WHERE tag.name = ?
+                        AND tag.local = 0
                                  )
                 """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {

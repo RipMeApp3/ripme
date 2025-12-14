@@ -39,6 +39,8 @@ public class RemoteFile {
     private boolean fetched; // Automatically set by DownloadFileThread
     private boolean ignored; // To be set manually by user, for now
     private Instant insertedTs; // Automatically set by RemoteFileDao
+    private Long bytes; // Automatically set by DownloadFileThread
+    private Integer localRating; // Not used by RipMe; for arbitrary local use by other applications
     private Set<String> tags; // To be set by ripper
 
     private static final Pattern MIME_TYPE_REGEX = Pattern.compile("[a-z]+/[a-z0-9_.+-]*");

@@ -43,6 +43,45 @@ class AlbumDaoTest extends SQLiteTestBase {
 
     @Test
     @WithInMemoryDb
+    void save_insert_localRating_null() throws SQLException, MalformedURLException {
+        AlbumDao albumDao = new AlbumDao(db);
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1234");
+        album.setUrl(URI.create("https://example.com/album/1234").toURL());
+        album.setFetchCount(1);
+        album.setLocalRating(null);
+        albumDao.save(album);
+        assertEquals(1, album.getId());
+
+        album = albumDao.findById(album.getId()).get();
+        assertEquals(1, album.getId());
+        assertNull(album.getLocalRating());
+    }
+
+    @Test
+    @WithInMemoryDb
+    void save_insert_localRating_notNull() throws SQLException, MalformedURLException {
+        AlbumDao albumDao = new AlbumDao(db);
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1234");
+        album.setUrl(URI.create("https://example.com/album/1234").toURL());
+        album.setFetchCount(1);
+        int localRating = 2;
+        album.setLocalRating(localRating);
+        albumDao.save(album);
+        assertEquals(1, album.getId());
+
+        album = albumDao.findById(album.getId()).get();
+        assertEquals(1, album.getId());
+        assertEquals(localRating, album.getLocalRating());
+    }
+
+    @Test
+    @WithInMemoryDb
     void save_insertedNotNull_lastFetchNull() throws SQLException, MalformedURLException {
         AlbumDao albumDao = new AlbumDao(db);
         Album album = new Album();
@@ -215,6 +254,7 @@ class AlbumDaoTest extends SQLiteTestBase {
         // Round off nanoseconds
         Instant createdTs = Instant.ofEpochMilli(Instant.now().minus(5, ChronoUnit.MINUTES).toEpochMilli());
         album.setCreatedTs(createdTs);
+        album.setLocalRating(2);
         albumDao.save(album);
         assertEquals(1, album.getId());
 
@@ -226,11 +266,13 @@ class AlbumDaoTest extends SQLiteTestBase {
         album.setTitle("Album Title Updated");
         Instant modifiedTs = Instant.ofEpochMilli(Instant.now().toEpochMilli());
         album.setModifiedTs(modifiedTs);
+        album.setLocalRating(3);
         albumDao.save(album);
         assertEquals(1, album.getId());
         album = albumDao.findById(album.getId()).get();
         assertEquals("Album Title Updated", album.getTitle());
         assertEquals(modifiedTs, album.getModifiedTs());
+        assertEquals(3, album.getLocalRating());
 
         // save overwrites all original values, even with new null values
         //assertNull(album.getCreatedTs()); // actually, decided against overwriting original values with new null values
@@ -249,7 +291,7 @@ class AlbumDaoTest extends SQLiteTestBase {
         albumDao.save(album);
         assertEquals(1, album.getId());
         album = albumDao.findById(album.getId()).get();
-        assertEquals(Set.of("tag1",  "tag2", "tag3"), album.getTags());
+        assertEquals(Set.of("tag1", "tag2", "tag3"), album.getTags());
     }
 
     @Test
@@ -288,6 +330,104 @@ class AlbumDaoTest extends SQLiteTestBase {
         album = albumDao.findById(album.getId()).get();
         assertEquals(Set.of(), album.getTags());
     }
+
+    @Test
+    @WithInMemoryDb
+    void saveTags_ignoreLocal() throws SQLException, MalformedURLException {
+        AlbumDao albumDao = new AlbumDao(db);
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1234");
+        album.setUrl(URI.create("https://example.com/album/1234").toURL());
+        albumDao.save(album);
+        assertEquals(1, album.getId());
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                           INSERT INTO tag(name, local)
+                           VALUES ('usertag1', 1)
+                        RETURNING tag_id
+                        """);
+                int localTagId = rs1.getInt("tag_id");
+                assertEquals(1, localTagId);
+                stmt.execute("INSERT INTO map_album_tag(album_id, tag_id) VALUES (1, 1)");
+            }
+        });
+        // All Album.tags in RipMe are remote tags, not local tags
+        album.setTags(Set.of("tag1", "tag2", "tag3"));
+        albumDao.save(album);
+
+        album = albumDao.findById(album.getId()).get();
+        assertEquals(Set.of("tag1", "tag2", "tag3"), album.getTags());
+        // local tags are preserved
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                        SELECT t.name
+                          FROM tag t
+                          JOIN map_album_tag mat ON mat.tag_id = t.tag_id
+                         WHERE t.local = 1
+                           AND mat.album_id = 1
+                        """);
+                String localTagName = rs1.getString("name");
+                assertEquals("usertag1", localTagName);
+            }
+        });
+    }
+
+    @Test
+    @WithInMemoryDb
+    void deleteTags_ignoreLocal() throws SQLException, MalformedURLException {
+        AlbumDao albumDao = new AlbumDao(db);
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1234");
+        album.setUrl(URI.create("https://example.com/album/1234").toURL());
+        albumDao.save(album);
+        assertEquals(1, album.getId());
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                           INSERT INTO tag(name, local)
+                           VALUES ('usertag1', 1)
+                        RETURNING tag_id
+                        """);
+                int localTagId = rs1.getInt("tag_id");
+                assertEquals(1, localTagId);
+                stmt.execute("INSERT INTO map_album_tag(album_id, tag_id) VALUES (1, 1)");
+            }
+        });
+        // All Album.tags in RipMe are remote tags, not local tags
+        album.setTags(Set.of("tag1", "tag2", "tag3"));
+        albumDao.save(album);
+
+        album = albumDao.findById(album.getId()).get();
+        assertEquals(Set.of("tag1", "tag2", "tag3"), album.getTags());
+        album.setTags(Set.of()); // Delete remote tags
+        albumDao.save(album);
+
+        album = albumDao.findById(album.getId()).get();
+        assertEquals(Set.of(), album.getTags());
+
+        // local tags are preserved
+        db.withConnection(conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                ResultSet rs1 = stmt.executeQuery("""
+                        SELECT t.name
+                          FROM tag t
+                          JOIN map_album_tag mat ON mat.tag_id = t.tag_id
+                         WHERE t.local = 1
+                           AND mat.album_id = 1
+                        """);
+                String localTagName = rs1.getString("name");
+                assertEquals("usertag1", localTagName);
+            }
+        });
+    }
+
+
 
     @Test
     @WithInMemoryDb
