@@ -39,8 +39,8 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
-                         , inserted_ts
                          , last_fetch_ts
+                         , inserted_ts
                       FROM album
                       JOIN ripper
                               ON album.ripper_id = ripper.ripper_id
@@ -75,8 +75,8 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
-                         , inserted_ts
                          , last_fetch_ts
+                         , inserted_ts
                       FROM album
                       JOIN ripper
                               ON album.ripper_id = ripper.ripper_id
@@ -120,8 +120,8 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
-                         , inserted_ts
                          , last_fetch_ts
+                         , inserted_ts
                       FROM album
                       JOIN ripper
                               ON album.ripper_id = ripper.ripper_id
@@ -161,8 +161,8 @@ public class AlbumDao extends BaseDao<Album> {
                          , fetch_count
                          , hidden
                          , removed
-                         , inserted_ts
                          , last_fetch_ts
+                         , inserted_ts
                       FROM album
                       JOIN ripper
                               ON album.ripper_id = ripper.ripper_id

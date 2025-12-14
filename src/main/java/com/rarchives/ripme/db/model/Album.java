@@ -27,8 +27,8 @@ public class Album {
     private int fetchCount; // Automatically set by AbstractRipper#notifyComplete via RipService#incrementFetchCount
     private boolean hidden; // To be set by ripper
     private boolean removed; // To be set by ripper
-    private Instant insertedTs; // Automatically set by AlbumDao
     private Instant lastFetchTs; // Automatically set by AlbumDao
+    private Instant insertedTs; // Automatically set by AlbumDao
     private Set<String> tags; // To be set by ripper
 
     public Set<String> getTags() {
