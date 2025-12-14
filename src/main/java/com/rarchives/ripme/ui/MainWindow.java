@@ -558,6 +558,11 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         optionQueue = new JToggleButton(Utils.getLocalizedString("queue"));
         optionConfiguration = new JToggleButton(Utils.getLocalizedString("Configuration"));
 
+        optionLog.setMargin(buttonPadding);
+        optionHistory.setMargin(buttonPadding);
+        optionQueue.setMargin(buttonPadding);
+        optionConfiguration.setMargin(buttonPadding);
+
         panelButtonGroup.add(optionLog);
         panelButtonGroup.add(optionHistory);
         panelButtonGroup.add(optionQueue);
