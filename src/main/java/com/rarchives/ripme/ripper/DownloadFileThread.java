@@ -21,6 +21,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.tika.Tika;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.HttpHeaders;
+import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MimeTypeException;
 import org.apache.tika.mime.MimeTypes;
@@ -292,7 +294,12 @@ class DownloadFileThread implements Runnable {
 
                 // Detect mime type (new code supporting more types, including video)
                 Tika tika = new Tika();
-                String detectedMimeType = tika.detect(bis);
+                Metadata metadata = new Metadata();
+                // Doesn't seem to work:
+                //metadata.set(TikaCoreProperties.CONTENT_TYPE_HINT, huc.getHeaderField("Content-Type"));
+                // Works, null-safe:
+                metadata.set(HttpHeaders.CONTENT_TYPE, huc.getHeaderField(HttpHeaders.CONTENT_TYPE));
+                String detectedMimeType = tika.detect(bis, metadata);
                 bis.reset();
 
                 MediaType parsedMimeType = MediaType.parse(detectedMimeType); // May include parameters; null if not parsed
@@ -302,7 +309,11 @@ class DownloadFileThread implements Runnable {
                     if (remoteFile != null) {
                         String lowerCaseMimeType = baseMimeType.toString();
                         remoteFile.setMimeType(lowerCaseMimeType.toLowerCase());
+                    } else {
+                        logger.warn("remoteFile is null, not able to set mime type for {}", ripUrlId);
                     }
+                } else {
+                    logger.warn("Unable to detect mime type for {}", ripUrlId);
                 }
 
                 // Check if we should get the file ext from the MIME type
