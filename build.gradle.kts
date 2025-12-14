@@ -82,6 +82,12 @@ tasks.withType<Jar> {
     attributes["Main-Class"] = "com.rarchives.ripme.App"
     attributes["Implementation-Version"] =  archiveVersion
     attributes["Multi-Release"] = "true"
+
+    //WARNING: A restricted method in java.lang.System has been called
+    //WARNING: java.lang.System::load has been called by org.sqlite.SQLiteJDBCLoader in an unnamed module (file:ripme.jar)
+    //WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+    //WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+    attributes["Enable-Native-Access"] = "ALL-UNNAMED"
   }
 
   // To add all of the dependencies otherwise a "NoClassDefFoundError" error
