@@ -82,6 +82,7 @@ erDiagram
         int fetch_count
         bool hidden
         bool removed
+        int local_rating
         int last_fetch_ts
         int inserted_ts
     }
@@ -97,14 +98,20 @@ erDiagram
         text url_path
         text filename
         int mime_type_id
+        int bytes
+        int width_px
+        int height_px
+        int duration_ms
         text title
         text description
         int uploaded_ts
         text uploader
+        text aux
         bool hidden
         bool removed
         bool fetched
         bool ignored
+        int local_rating
         int inserted_ts
     }
     map_album_tag {

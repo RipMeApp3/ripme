@@ -24,6 +24,7 @@ entity album {
    fetch_count: integer
    hidden: boolean
    removed: boolean
+   local_rating: integer
    last_fetch_ts: integer
    inserted_ts: integer
 }
@@ -36,14 +37,20 @@ entity remote_file {
    url_path: text
    filename: text
    mime_type_id: integer
+   bytes: integer
+   width_px: integer
+   height_px: integer
+   duration_ms: integer
    title: text
    description: text
    uploaded_ts: integer
    uploader: text
+   aux: text
    hidden: boolean
    removed: boolean
    fetched: boolean
    ignored: boolean
+   local_rating: integer
    inserted_ts: integer
 }
 entity map_album_remote_file {
@@ -54,6 +61,7 @@ entity tag {
    tag_id: integer
    --
    name: text
+   local: boolean
 }
 entity map_album_tag {
    album_id: integer
