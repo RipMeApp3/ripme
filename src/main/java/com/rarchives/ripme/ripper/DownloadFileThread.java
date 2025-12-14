@@ -184,14 +184,6 @@ class DownloadFileThread implements Runnable {
             }
         }
 
-        if (saveAsPart.exists()) {
-            if (observer.tryResumeDownload()) {
-                fileSize = saveAsPart.length();
-            } else {
-                if (!saveAsPart.delete()) logger.error("could not delete existing file: " + saveAsPart.getAbsolutePath());
-            }
-        }
-
         boolean redirected = false;
         int tries = 0; // Number of attempts to download
         do {
@@ -201,6 +193,14 @@ class DownloadFileThread implements Runnable {
 
                 String urlNoQuery = SplitUrl.of(url).noQueryFragment().toExternalForm();
                 observer.sendUpdate(STATUS.DOWNLOAD_STARTED, urlNoQuery);
+
+                if (saveAsPart.exists()) {
+                    if (observer.tryResumeDownload()) {
+                        fileSize = saveAsPart.length();
+                    } else {
+                        if (!saveAsPart.delete()) logger.error("could not delete existing file: " + saveAsPart.getAbsolutePath());
+                    }
+                }
 
                 // Setup HTTP request
                 HttpURLConnection huc;
