@@ -39,6 +39,7 @@ dependencies {
   implementation("org.apache.logging.log4j:log4j-api:2.20.0")
   implementation("org.apache.logging.log4j:log4j-core:2.20.0")
   implementation("org.apache.tika:tika-core:3.2.3")
+  //implementation("org.apache.tika:tika-parsers-standard-package:3.2.3")
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   implementation("org.graalvm.js:js:22.3.2")
   testImplementation(enforcedPlatform("org.junit:junit-bom:5.10.0"))
