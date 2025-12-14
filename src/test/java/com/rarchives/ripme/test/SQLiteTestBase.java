@@ -1,6 +1,7 @@
 package com.rarchives.ripme.test;
 
 import com.rarchives.ripme.db.DatabaseManager;
+import com.rarchives.ripme.db.DbInitializeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -24,7 +25,7 @@ public class SQLiteTestBase {
     protected DatabaseManager db;
 
     @BeforeEach
-    public void setup(TestInfo testInfo) throws SQLException, ReflectiveOperationException {
+    public void setup(TestInfo testInfo) throws SQLException, ReflectiveOperationException, DbInitializeException {
         Method testMethod = testInfo.getTestMethod().get();
         Method getSQLiteDataSource = DatabaseManager.class.getDeclaredMethod("getSQLiteDataSource");
         getSQLiteDataSource.setAccessible(true);

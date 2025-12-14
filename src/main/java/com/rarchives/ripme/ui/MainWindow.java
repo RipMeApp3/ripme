@@ -42,6 +42,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.rarchives.ripme.App;
+import com.rarchives.ripme.db.DbInitializeException;
 import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.AbstractRipper;
 import com.rarchives.ripme.ripper.SkipAlbumRipException;
@@ -58,8 +59,16 @@ public final class MainWindow implements Runnable, RipStatusHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(MainWindow.class);
     private static final String RIPME_PANEL = "ripme.panel";
+    private static final String LOADING_CARD = "LOADING_CARD";
+    private static final String MAIN_CARD = "MAIN_CARD";
 
     private static JFrame mainFrame;
+
+    private static final CardLayout cardLayout = new CardLayout();
+    private static final JPanel cards = new JPanel(cardLayout);
+
+    private static final JLabel loadingCardLabel = new JLabel("Loading");
+    private static final JProgressBar loadingCardProgress = new JProgressBar();
 
     private static JTextField ripTextfield;
     private static JButton ripButton, stopButton;
@@ -255,18 +264,61 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     }
 
     public void run() {
-        // TODO display a spinner on mainFrame while data is initializing/loading
-        App.getDb().initialize();
-        App.getDownloadedFilesLog().load();
         pack();
         restoreWindowPosition(mainFrame);
         mainFrame.setVisible(true);
         mainFrame.pack();
 
-        // Enabling autorip must happen after App.getDownloadedFilesLog().load();
-        boolean autoripEnabled = Utils.getConfigBoolean("clipboard.autorip", false);
-        ClipboardUtils.setClipboardAutoRip(autoripEnabled);
-        trayMenuAutorip.setState(autoripEnabled);
+        new SwingWorker<Void, Void>() {
+            boolean success = true;
+
+            @Override
+            protected Void doInBackground() {
+                cardLayout.show(cards, LOADING_CARD); // Redundant, but safe
+                try {
+                    loadingCardProgress.setString("Ensuring database is the latest version...");
+                    App.getDb().addPropertyChangeListener(evt -> {
+                        loadingCardProgress.setString(String.valueOf(evt.getNewValue()));
+                    });
+                    App.getDb().initialize();
+                } catch (DbInitializeException e) {
+                    LOGGER.fatal(e.getMessage(), e);
+                    success = false;
+                    loadingCardProgress.setVisible(false);
+                    loadingCardLabel.setVisible(false); // Hide while setting HTML text to prevent flash of unstyled text
+                    loadingCardLabel.setText("""
+                            <html>
+                            <p>Unable to ensure database is the current version.</p>
+                            <p></p>
+                            <p>Create a backup copy of the database file, then delete the original to continue.</p>
+                            <p></p>
+                            <p>Please file a bug report.</p>
+                            </html>
+                            """);
+                    loadingCardLabel.setVisible(true); // Hide while setting HTML text to prevent flash of unstyled text
+                    return null;
+                }
+
+                loadingCardProgress.setString("Loading downloading file log...");
+                App.getDownloadedFilesLog().load();
+                loadingCardProgress.setString(""); // Finished
+
+                // Enabling autorip must happen after App.getDownloadedFilesLog().load();
+                boolean autoripEnabled = Utils.getConfigBoolean("clipboard.autorip", false);
+                ClipboardUtils.setClipboardAutoRip(autoripEnabled);
+                trayMenuAutorip.setState(autoripEnabled);
+
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (success) {
+                    cardLayout.show(cards, MAIN_CARD);
+                }
+            }
+        }.execute();
+
     }
 
     private void shutdownCleanup() {
@@ -801,21 +853,43 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         optionQueue.putClientProperty(RIPME_PANEL, queuePanel);
         optionConfiguration.putClientProperty(RIPME_PANEL, configurationPanel);
 
+        JPanel loadingCard = new JPanel(new GridBagLayout());
+        JPanel mainCard = new JPanel(new GridBagLayout());
+
+        loadingCardProgress.setStringPainted(true);
+        loadingCardProgress.setString("");
+        loadingCardProgress.setIndeterminate(true);
+        loadingCardLabel.setHorizontalTextPosition(SwingConstants.CENTER);
+        loadingCardLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        loadingCard.add(loadingCardLabel, gbc);
+        gbc.gridy++;
+        loadingCard.add(loadingCardProgress, gbc);
+
+        cards.add(loadingCard, LOADING_CARD);
+        cards.add(mainCard, MAIN_CARD);
+        cardLayout.show(cards, LOADING_CARD);
+        pane.setLayout(new BorderLayout());
+        pane.add(cards, BorderLayout.CENTER);
+
+        gbc.anchor = GridBagConstraints.CENTER;
         gbc.gridy = 0;
         gbc.gridx = 0;
-        pane.add(ripPanel, gbc);
+        mainCard.add(ripPanel, gbc);
         gbc.gridy = 1;
-        pane.add(statusPanel, gbc);
+        mainCard.add(statusPanel, gbc);
         gbc.gridy = 2;
-        pane.add(optionsPanel, gbc);
+        mainCard.add(optionsPanel, gbc);
         gbc.weighty = 1;
         gbc.fill = GridBagConstraints.BOTH;
         gbc.gridy = 3;
-        pane.add(logPanel, gbc);
-        pane.add(historyPanel, gbc);
-        pane.add(queuePanel, gbc);
-        pane.add(configurationPanel, gbc);
-        pane.add(emptyPanel, gbc);
+        mainCard.add(logPanel, gbc);
+        mainCard.add(historyPanel, gbc);
+        mainCard.add(queuePanel, gbc);
+        mainCard.add(configurationPanel, gbc);
+        mainCard.add(emptyPanel, gbc);
     }
 
     private static void setTabButtonPreferredSizes() {

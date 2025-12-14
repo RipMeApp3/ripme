@@ -1,6 +1,7 @@
 package com.rarchives.ripme;
 
 import com.rarchives.ripme.db.DatabaseManager;
+import com.rarchives.ripme.db.DbInitializeException;
 import com.rarchives.ripme.db.service.RipService;
 import com.rarchives.ripme.ripper.AbstractRipper;
 import com.rarchives.ripme.ripper.SkipAlbumRipException;
@@ -77,10 +78,6 @@ public class App {
         }
 
         if (GraphicsEnvironment.isHeadless() || args.length > 0) {
-            // GUI might want control over initialization to display a spinner,
-            // so initialize headless mode separately
-            db.initialize();
-            downloadedFilesLog.load();
             handleArguments(args);
         } else {
             // Antialiasing hint, especially for Linux
@@ -156,6 +153,19 @@ public class App {
 
         Utils.configureLogger();
         logger.info("Initialized ripme v" + UpdateUtils.getThisJarVersion());
+
+        try {
+            // GUI wants control over initialization to display a spinner,
+            // so initialize headless mode separately for CLI
+            db.initialize();
+        } catch (DbInitializeException e) {
+            logger.fatal(e);
+            logger.fatal("Unable to ensure database is the current version.");
+            logger.fatal("Create a backup copy of the database file, then delete the original to continue.");
+            logger.fatal("Please file a bug report.");
+            System.exit(1);
+        }
+        downloadedFilesLog.load();
 
         //Set history file
         if (cl.hasOption('H')) {

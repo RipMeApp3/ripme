@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class DatabaseManagerTest {
 
     @Test
-    void initialize() throws SQLException {
+    void initialize() throws SQLException, DbInitializeException {
         DatabaseManager db = new DatabaseManager(":memory:?cache=shared");
         // Keep the in-memory db alive with a persistent connection unused by the test
         try (Connection ignored = db.getConnection()) {

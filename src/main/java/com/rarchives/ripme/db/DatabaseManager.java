@@ -7,12 +7,19 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.callback.Callback;
+import org.flywaydb.core.api.callback.Context;
+import org.flywaydb.core.api.callback.Event;
 import org.sqlite.SQLiteConfig;
 import org.sqlite.SQLiteDataSource;
 import org.sqlite.SQLiteErrorCode;
 import org.sqlite.SQLiteException;
 
 import javax.sql.DataSource;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.sql.*;
 import java.time.Duration;
 import java.util.Objects;
@@ -26,6 +33,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class DatabaseManager {
     private static final Logger logger = LogManager.getLogger(DatabaseManager.class);
+
+    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
+    private String migrationStatus;
 
     private final Object lock = new Object();
     private static final int MAX_QUERY_RETRIES = 5;
@@ -145,7 +155,56 @@ public class DatabaseManager {
         return dataSource;
     }
 
-    public void initialize() {
+    public void addPropertyChangeListener(PropertyChangeListener listener) {
+        propertyChangeSupport.addPropertyChangeListener(listener);
+    }
+
+    public void removePropertyChangeListener(PropertyChangeListener listener) {
+        propertyChangeSupport.removePropertyChangeListener(listener);
+    }
+
+    public class MigrationProgressCallback implements Callback {
+        @Override
+        public boolean supports(Event event, Context context) {
+            String id = event.getId();
+            return id.startsWith("before") || id.startsWith("after");
+        }
+
+        @Override
+        public boolean canHandleInTransaction(Event event, Context context) {
+            // Not relevant if we don't interact with the database
+            return true;
+        }
+
+        @Override
+        public void handle(Event event, Context context) {
+            if (Event.AFTER_MIGRATE.equals(event)) {
+                String oldStatus = migrationStatus;
+                migrationStatus = "Migration complete";
+                propertyChangeSupport.firePropertyChange("migration.status", oldStatus, migrationStatus);
+                return;
+            }
+            MigrationInfo migrationInfo = context.getMigrationInfo();
+            if (migrationInfo == null) {
+                return;
+            }
+            boolean isBefore = event.getId().startsWith("before");
+            if (!isBefore) {
+                return;
+            }
+            String oldStatus = migrationStatus;
+            MigrationVersion version = migrationInfo.getVersion();
+            migrationStatus = "Upgrading database: applying " + version.toString() + " / " + migrationInfo.getDescription();
+            propertyChangeSupport.firePropertyChange("migration.status", oldStatus, migrationStatus);
+        }
+
+        @Override
+        public String getCallbackName() {
+            return "MigrationProgress";
+        }
+    }
+
+    public void initialize() throws DbInitializeException {
         SQLiteDataSource sqliteMigrateDs = getSQLiteDataSource();
         // Foreign keys need to be off or else ON DELETE CASCADE etc. will trigger,
         // but Flyway doesn't support PRAGMA foreign_keys=OFF; in migration scripts,
@@ -156,15 +215,16 @@ public class DatabaseManager {
                 .dataSource(sqliteMigrateDs)
                 .loggers("log4j2") // some library transitively pulls in slf4j
                 .locations("db/migration")
+                .callbacks(new MigrationProgressCallback())
                 .load();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(this::cleanupWalShutdown));
+
         try {
             flyway.migrate();
         } catch (FlywayException e) {
-            logger.fatal("Error while trying to migrate database", e);
-            throw new RuntimeException(e);
+            throw new DbInitializeException("Error while trying to migrate database", e);
         }
-
-        Runtime.getRuntime().addShutdownHook(new Thread(this::cleanupWalShutdown));
     }
 
     private void cleanupWalShutdown() {
