@@ -133,6 +133,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     private static JCheckBox configSaveURLsOnly;
     private static JCheckBox configSaveAlbumTitles;
     private static JCheckBox configClipboardAutorip;
+    private static JCheckBox configQueueAtTop;
     private static JCheckBox configSaveDescriptions;
     private static JCheckBox configPreferMp4;
     private static JCheckBox configWindowPosition;
@@ -203,7 +204,17 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     }
 
     public static void addUrlToQueue(String url) {
-        queueListModel.addElement(url);
+        if (Utils.getConfigBoolean("queue.at.top", false)) {
+            int[] selectedIndices = queueList.getSelectedIndices();
+            // Inserting at 0 while the previous 0 was selected can cause the selection to change, probably a Swing bug
+            queueListModel.insertElementAt(url, 0);
+            for (int i = 0; i < selectedIndices.length; i++) {
+                selectedIndices[i]++;
+            }
+            queueList.setSelectedIndices(selectedIndices);
+        } else {
+            queueListModel.addElement(url);
+        }
     }
 
     public MainWindow() throws IOException {
@@ -262,6 +273,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         Utils.setConfigBoolean("urls_only.save", configSaveURLsOnly.isSelected());
         Utils.setConfigBoolean("album_titles.save", configSaveAlbumTitles.isSelected());
         Utils.setConfigBoolean("clipboard.autorip", configClipboardAutorip.isSelected());
+        Utils.setConfigBoolean("queue.at.top", configQueueAtTop.isSelected());
         Utils.setConfigBoolean("descriptions.save", configSaveDescriptions.isSelected());
         Utils.setConfigBoolean("prefer.mp4", configPreferMp4.isSelected());
         Utils.setConfigBoolean("remember.url_history", configURLHistoryCheckbox.isSelected());
@@ -697,6 +709,8 @@ public final class MainWindow implements Runnable, RipStatusHandler {
                 true);
         configClipboardAutorip = addNewCheckbox(Utils.getLocalizedString("autorip.from.clipboard"), "clipboard.autorip",
                 false);
+        configQueueAtTop = addNewCheckbox(Utils.getLocalizedString("queue.at.top"), "queue.at.top",
+                false);
         configSaveDescriptions = addNewCheckbox(Utils.getLocalizedString("save.descriptions"), "descriptions.save",
                 true);
         configPreferMp4 = addNewCheckbox(Utils.getLocalizedString("prefer.mp4.over.gif"), "prefer.mp4", false);
@@ -739,9 +753,9 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         addItemToConfigGridBagConstraints(gbc, idx++, configPlaySound, configSaveLogs);
         addItemToConfigGridBagConstraints(gbc, idx++, configShowPopup, configSaveURLsOnly);
         addItemToConfigGridBagConstraints(gbc, idx++, configClipboardAutorip, configSaveAlbumTitles);
-        addItemToConfigGridBagConstraints(gbc, idx++, configSaveDescriptions, configPreferMp4);
-        addItemToConfigGridBagConstraints(gbc, idx++, configWindowPosition, configURLHistoryCheckbox);
-        addItemToConfigGridBagConstraints(gbc, idx++, configSSLVerifyOff, configSSLVerifyOff);
+        addItemToConfigGridBagConstraints(gbc, idx++, configQueueAtTop, configPreferMp4);
+        addItemToConfigGridBagConstraints(gbc, idx++, configSaveDescriptions, configURLHistoryCheckbox);
+        addItemToConfigGridBagConstraints(gbc, idx++, configWindowPosition, configSSLVerifyOff);
         addItemToConfigGridBagConstraints(gbc, idx++, configSelectLangComboBox, configUrlFileChooserButton);
         addItemToConfigGridBagConstraints(gbc, idx++, configSaveDirLabel, configSaveDirButton);
 
@@ -846,6 +860,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         configSaveURLsOnly.setText(Utils.getLocalizedString("save.urls.only"));
         configSaveAlbumTitles.setText(Utils.getLocalizedString("save.album.titles"));
         configClipboardAutorip.setText(Utils.getLocalizedString("autorip.from.clipboard"));
+        configQueueAtTop.setText(Utils.getLocalizedString("queue.at.top"));
         configSaveDescriptions.setText(Utils.getLocalizedString("save.descriptions"));
         configUrlFileChooserButton.setText(Utils.getLocalizedString("download.url.list"));
         configSaveDirButton.setText(Utils.getLocalizedString("select.save.dir") + "...");
@@ -1129,6 +1144,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         addCheckboxListener(configSaveDescriptions, "descriptions.save");
         addCheckboxListener(configPreferMp4, "prefer.mp4");
         addCheckboxListener(configWindowPosition, "window.position");
+        addCheckboxListener(configQueueAtTop, "queue.at.top");
 
         configClipboardAutorip.addActionListener(arg0 -> {
             Utils.setConfigBoolean("clipboard.autorip", configClipboardAutorip.isSelected());
@@ -1626,7 +1642,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
                     for (int i = rangeStart; i < rangeEnd + 1; i++) {
                         String realURL = url.replaceAll("\\{\\S*\\}", Integer.toString(i));
                         if (canRip(realURL)) {
-                            queueListModel.addElement(realURL);
+                            addUrlToQueue(realURL);
                             urlInQueue = true;
                         } else {
                             displayAndLogError("Can't find ripper for " + realURL, Color.RED);
@@ -1635,7 +1651,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
                 }
             } else {
                 if (canRip(url)) {
-                    queueListModel.addElement(url);
+                    addUrlToQueue(url);
                     urlInQueue = true;
                 } else {
                     displayAndLogError("Can't find ripper for " + url, Color.RED);
