@@ -239,9 +239,6 @@ public final class MainWindow implements Runnable, RipStatusHandler {
             upgradeProgram();
         }
 
-        boolean autoripEnabled = Utils.getConfigBoolean("clipboard.autorip", false);
-        ClipboardUtils.setClipboardAutoRip(autoripEnabled);
-        trayMenuAutorip.setState(autoripEnabled);
     }
 
     private void upgradeProgram() {
@@ -260,6 +257,11 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         restoreWindowPosition(mainFrame);
         mainFrame.setVisible(true);
         mainFrame.pack();
+
+        // Enabling autorip must happen after App.getDownloadedFilesLog().load();
+        boolean autoripEnabled = Utils.getConfigBoolean("clipboard.autorip", false);
+        ClipboardUtils.setClipboardAutoRip(autoripEnabled);
+        trayMenuAutorip.setState(autoripEnabled);
     }
 
     private void shutdownCleanup() {
