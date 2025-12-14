@@ -12,9 +12,9 @@ plugins {
   id("jacoco")
   id("java")
   id("maven-publish")
-  id("com.gradleup.shadow") version "9.0.0-rc1"
-  id("io.freefair.lombok") version "8.14.2"
-  id("org.flywaydb.flyway") version "11.1.1"
+  id("com.gradleup.shadow") version "9.3.0"
+  id("io.freefair.lombok") version "9.1.0"
+  id("org.flywaydb.flyway") version "11.19.0"
 }
 
 repositories {
@@ -23,21 +23,22 @@ repositories {
 }
 
 dependencies {
-  implementation("org.xerial:sqlite-jdbc:3.50.3.0")
-  implementation("org.flywaydb:flyway-core:11.1.1")
+  implementation("org.xerial:sqlite-jdbc:3.51.1.0")
+  implementation("org.flywaydb:flyway-core:11.19.0")
   implementation("com.zaxxer:HikariCP:7.0.2")
   implementation("com.lmax:disruptor:3.4.4")
   implementation("org.java-websocket:Java-WebSocket:1.5.3")
-  implementation("org.jsoup:jsoup:1.16.1")
-  implementation("org.json:json:20231013")
+  implementation("org.jsoup:jsoup:1.21.2")
+  implementation("org.json:json:20250517")
   implementation("com.j2html:j2html:1.6.0")
   implementation("commons-configuration:commons-configuration:1.10")
-  implementation("commons-cli:commons-cli:1.5.0")
-  implementation("commons-io:commons-io:2.20.0")
+  implementation("commons-cli:commons-cli:1.11.0")
+  implementation("commons-io:commons-io:2.21.0")
+  //implementation("org.apache.httpcomponents.client5:httpclient5:5.5")
   implementation("org.apache.httpcomponents:httpclient:4.5.14")
   implementation("org.apache.httpcomponents:httpmime:4.5.14")
-  implementation("org.apache.logging.log4j:log4j-api:2.20.0")
-  implementation("org.apache.logging.log4j:log4j-core:2.20.0")
+  implementation("org.apache.logging.log4j:log4j-api:2.25.2")
+  implementation("org.apache.logging.log4j:log4j-core:2.25.2")
   implementation("org.apache.tika:tika-core:3.2.3")
   //implementation("org.apache.tika:tika-parsers-standard-package:3.2.3")
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -58,7 +59,7 @@ java {
 }
 
 jacoco {
-  toolVersion = "0.8.12"
+  toolVersion = "0.8.14"
 }
 
 jgitver {
