@@ -204,6 +204,10 @@ public final class MainWindow implements Runnable, RipStatusHandler {
     }
 
     public static void addUrlToQueue(String url) {
+        if (isRipperActive.get() && ripper != null && ripper.getURL().toString().equals(url)) {
+            // Already ripping it
+            return;
+        }
         if (Utils.getConfigBoolean("queue.at.top", false)) {
             int[] selectedIndices = queueList.getSelectedIndices();
             // Inserting at 0 while the previous 0 was selected can cause the selection to change, probably a Swing bug
