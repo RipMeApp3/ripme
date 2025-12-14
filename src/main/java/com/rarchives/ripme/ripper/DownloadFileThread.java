@@ -249,7 +249,7 @@ class DownloadFileThread implements Runnable {
                 huc.connect();
 
                 int statusCode = huc.getResponseCode();
-                logger.debug("Status code: " + statusCode);
+                logger.debug("Status code for {}: {}", ripUrlId, statusCode);
                 // If the server doesn't allow resuming downloads error out
                 if (statusCode != 206 && observer.tryResumeDownload() && saveAsPart.exists()) {
                     // TODO find a better way to handle servers that don't support resuming
