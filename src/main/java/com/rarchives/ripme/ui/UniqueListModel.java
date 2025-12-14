@@ -15,6 +15,9 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
 
     // Access to the model may happen from different threads, so we need to synchronize on a lock.
     // DefaultListModel uses Vector which is synchronized by default, which is why that doesn't use it.
+    // Note: fired events are serially and synchronously processed on the AWT thread,
+    //       even if the model is modified on a different thread,
+    //       so events must be fired out of the lock to prevent a deadlock.
     ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
     ReentrantReadWriteLock.ReadLock readLock = rwLock.readLock();
     ReentrantReadWriteLock.WriteLock writeLock = rwLock.writeLock();
@@ -90,6 +93,7 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
 
     public void insertElementAt(E element, int index) {
         writeLock.lock();
+        boolean shouldFire = false; // Fire event outside of the lock to prevent deadlock on AWT thread
         try {
             if (index < 0 || index > size()) {
                 throw new IndexOutOfBoundsException("index out of bounds");
@@ -98,7 +102,7 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
             if (!delegateSet.contains(element)) {
                 if (delegateSet.add(element)) {
                     delegateList.add(index, element);
-                    fireIntervalAdded(this, index, index);
+                    shouldFire = true;
                 }
                 return;
             }
@@ -112,6 +116,9 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
             // TODO fire both interval added and interval removed?
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalAdded(this, index, index);
+            }
         }
     }
 
@@ -121,19 +128,26 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
 
     public void addElement(E element) {
         writeLock.lock();
+        boolean shouldFire = false;
+        int index = 0;
         try {
             if (delegateSet.add(element)) {
-                int index = delegateList.size();
+                index = delegateList.size();
                 delegateList.add(element);
-                fireIntervalAdded(this, index, index);
+                shouldFire = true;
             }
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalAdded(this, index, index);
+            }
         }
     }
 
     public void addAll(int index, Collection<? extends E> collection) {
         writeLock.lock();
+        boolean shouldFire = false;
+        int lastIndex = 0;
         try {
             if (index < 0 || index > getSize()) {
                 throw new ArrayIndexOutOfBoundsException("index out of range: " + index);
@@ -141,75 +155,94 @@ public class UniqueListModel<E> extends AbstractListModel<E> {
             if (collection.isEmpty()) {
                 return;
             }
-            int i = 0;
             for (E element : collection) {
                 if (delegateSet.add(element)) {
-                    delegateList.add(index + i, element);
-                    i++;
+                    delegateList.add(index + lastIndex, element);
+                    lastIndex++;
+                    shouldFire = true;
                 }
             }
-            fireIntervalAdded(this, index, index + i - 1);
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalAdded(this, index, index + lastIndex - 1);
+            }
         }
     }
 
     public void addAll(Collection<? extends E> collection) {
         writeLock.lock();
+        boolean shouldFire = false;
+        int startIndex = 0;
         try {
             if (collection.isEmpty()) {
                 return;
             }
-            int startIndex = delegateList.size();
+            startIndex = delegateList.size();
             for (E element : collection) {
                 if (delegateSet.add(element)) {
                     delegateList.add(element);
+                    shouldFire = true;
                 }
             }
-            fireIntervalAdded(this, startIndex, delegateList.size() - 1);
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalAdded(this, startIndex, delegateList.size() - 1);
+            }
         }
     }
 
     public E remove(int index) {
         writeLock.lock();
+        boolean shouldFire = false;
         try {
             E removedElement = delegateList.remove(index);
             delegateSet.remove(removedElement);
-            fireIntervalRemoved(this, index, index);
+            shouldFire = true;
             return removedElement;
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalRemoved(this, index, index);
+            }
         }
     }
 
     public boolean removeElement(E element) {
         writeLock.lock();
+        boolean shouldFire = false;
+        int index = 0;
         try {
             if (delegateSet.remove(element)) {
-                int index = delegateList.indexOf(element);
+                index = delegateList.indexOf(element);
                 delegateList.remove(index);
-                fireIntervalRemoved(this, index, index);
+                shouldFire = true;
                 return true;
             }
             return false;
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalRemoved(this, index, index);
+            }
         }
     }
 
     public void removeAllElements() {
         writeLock.lock();
+        boolean shouldFire = false;
+        int originalLastIndex = 0;
         try {
-            int originalLastIndex = delegateList.size() - 1;
+            originalLastIndex = delegateList.size() - 1;
             delegateList.clear();
             delegateSet.clear();
-            if (originalLastIndex >= 0) {
-                fireIntervalRemoved(this, 0, originalLastIndex);
-            }
+            shouldFire = originalLastIndex >= 0;
         } finally {
             writeLock.unlock();
+            if (shouldFire) {
+                fireIntervalRemoved(this, 0, originalLastIndex);
+            }
         }
     }
 
