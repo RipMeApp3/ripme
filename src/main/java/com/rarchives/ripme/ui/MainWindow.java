@@ -183,11 +183,15 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         transferRateValue.setText(transferRate.formatHumanTransferRate());
     };
 
+    private static final Object debounceSaveConfigLock = new Object();
+
     private void updateQueue() {
-        Utils.setConfigList("queue", queueListModel.getList());
-        debouncedSaveConfig.run();
-        MainWindow.optionQueue.setText(String.format("%s%s", Utils.getLocalizedString("queue"),
-                queueListModel.isEmpty() ? "" : "(" + queueListModel.size() + ")"));
+        synchronized (debounceSaveConfigLock) {
+            Utils.setConfigList("queue", queueListModel.getList());
+            debouncedSaveConfig.run();
+            MainWindow.optionQueue.setText(String.format("%s%s", Utils.getLocalizedString("queue"),
+                    queueListModel.isEmpty() ? "" : "(" + queueListModel.size() + ")"));
+        }
     }
 
     private static void addCheckboxListener(JCheckBox checkBox, String configString) {
