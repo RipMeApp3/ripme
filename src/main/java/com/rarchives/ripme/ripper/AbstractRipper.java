@@ -1103,10 +1103,6 @@ public abstract class AbstractRipper
     }
 
     public int getPendingCount() {
-        DownloadThreadPool threadPool = getRipperThreadPool();
-        if (threadPool != null) {
-            return threadPool.getPendingThreadCount();
-        }
         return itemsPending.size();
     }
 
