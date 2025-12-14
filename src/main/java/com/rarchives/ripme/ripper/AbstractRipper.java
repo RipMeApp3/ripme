@@ -1118,6 +1118,10 @@ public abstract class AbstractRipper
         return itemsErrored.size();
     }
 
+    public Map<RipUrlId, String> getItemsErrored() {
+        return itemsErrored;
+    }
+
     public int getActiveCount() {
         return ripperThreadPool.getActiveThreadCount();
     }

@@ -36,6 +36,7 @@ import javax.swing.event.ListDataListener;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.text.*;
 
+import com.rarchives.ripme.ripper.RipUrlId;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -1888,7 +1889,16 @@ public final class MainWindow implements Runnable, RipStatusHandler {
                 }
             }
             appendLog("Rip complete, saved to " + f, Color.GREEN);
-            LOGGER.info("Rip complete: {}", url);
+            int errors = ripper.getErroredCount();
+            int completed = ripper.getCompletedCount();
+            LOGGER.info("Rip complete: {}; completed={} errored={}", url, completed, errors);
+            if (errors > 0) {
+                LOGGER.debug("Error summary:");
+                Map<RipUrlId, String> itemsErrored = ripper.getItemsErrored();
+                for (Map.Entry<RipUrlId, String> entry : itemsErrored.entrySet()) {
+                    LOGGER.debug("  error for {}: {}", entry.getKey(), entry.getValue());
+                }
+            }
             status(Utils.getLocalizedString("inactive"));
             openButton.setActionCommand(f.toString());
             ripFinishCleanup();
