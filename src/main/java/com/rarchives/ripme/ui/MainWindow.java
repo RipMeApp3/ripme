@@ -583,9 +583,26 @@ public final class MainWindow implements Runnable, RipStatusHandler {
 
         logPanel = new JPanel(new GridBagLayout());
         logText = new JTextPane();
+        //logText = new JTextPane() {
+        //    @Override
+        //    public boolean getScrollableTracksViewportWidth() {
+        //        return true;
+        //    }
+        //};
+        //((DefaultCaret)logText.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
         logText.setEditable(false);
         JScrollPane logTextScroll = new JScrollPane(logText);
         logTextScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        //logTextScroll.getVerticalScrollBar().addAdjustmentListener(e -> {
+        //    Adjustable adjustable = e.getAdjustable();
+        //    int max = adjustable.getMaximum();
+        //    int extent = adjustable.getVisibleAmount();
+        //    int value = adjustable.getValue();
+        //    int pixelTolerance = 1;
+        //    boolean atBottom = value + extent >= max - pixelTolerance;
+        //    if (atBottom) LOGGER.debug("value: {}, extent: {}, max: {}, atBottom: {}", value, extent, max, atBottom);
+        //    autoScrollLog.set(atBottom);
+        //});
         logPanel.setVisible(false);
         logPanel.setPreferredSize(new Dimension(300, 250));
         gbc.fill = GridBagConstraints.BOTH;
