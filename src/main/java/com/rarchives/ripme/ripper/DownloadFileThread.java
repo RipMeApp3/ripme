@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -59,6 +60,7 @@ class DownloadFileThread implements Runnable {
     private final int TIMEOUT;
 
     private final int retrySleep;
+    private final double retryDelayMultiplier = 1.8;
 
     public DownloadFileThread(TokenedUrlGetter tug, RipUrlId ripUrlId, Path directory, String filename, AbstractRipper observer, Boolean getFileExtFromMIME) {
         super();
@@ -400,17 +402,31 @@ class DownloadFileThread implements Runnable {
                             Utils.getLocalizedString("0.while.downloading.1", "HTTP " + hse.getStatusCode(), url.toExternalForm()));
                     return;
                 }
+            } catch (SocketException e) {
+                boolean resumable = "Connection reset".equals(e.getMessage());
+                if (!resumable) {
+                    logger.debug("SocketException", e);
+                    logger.error("[!] " + Utils.getLocalizedString("exception.while.downloading.file") + ": " + url + " - "
+                            + e.getMessage());
+                    observer.downloadErrored(ripUrlId, e.getMessage());
+                    return;
+                }
+                // fall through to retry
             } catch (IOException e) {
                 if (guessIsENOSPC(e, saveAsPart)) {
                     logger.debug("IOException", e);
                     observer.downloadErrored(ripUrlId, Utils.getLocalizedString("no.space.left.on.device")); // TODO cancel all rips
                     return;
                 }
-                logger.debug("IOException", e);
-                logger.error("[!] " + Utils.getLocalizedString("exception.while.downloading.file") + ": " + url + " - "
-                        + e.getMessage());
-                observer.downloadErrored(ripUrlId, e.getMessage());
-                return;
+                boolean resumable = "Premature EOF".equals(e.getMessage());
+                if (!resumable) {
+                    logger.debug("IOException", e);
+                    logger.error("[!] " + Utils.getLocalizedString("exception.while.downloading.file") + ": " + url + " - "
+                            + e.getMessage());
+                    observer.downloadErrored(ripUrlId, e.getMessage());
+                    return;
+                }
+                // fall through to retry
             } catch (URISyntaxException e) {
                 logger.debug("IOException", e);
                 logger.error("[!] " + Utils.getLocalizedString("exception.while.downloading.file") + ": " + url + " - "
@@ -432,8 +448,15 @@ class DownloadFileThread implements Runnable {
                         Utils.getLocalizedString("failed.to.download") + " " + url.toExternalForm());
                 return;
             } else {
-                if (retrySleep > 0) {
-                    Utils.sleep(retrySleep);
+                long delay = (long) (retrySleep * Math.pow(retryDelayMultiplier, tries));
+                if (delay > 0) {
+                    logger.info("Retry: backing off for {}", Duration.ofMillis(delay));
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(delay);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
                 }
             }
 
