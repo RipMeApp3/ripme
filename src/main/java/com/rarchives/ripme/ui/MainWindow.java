@@ -1455,7 +1455,7 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         Utils.setConfigList("queue", queueListModel.getList());
 
         boolean wasGracefulStop = gracefulStop.getAndSet(false);
-        boolean wasPanicStop = gracefulStop.getAndSet(false);
+        boolean wasPanicStop = panicStop.getAndSet(false);
         if (wasGracefulStop || wasPanicStop) {
             // Stop requested
             LOGGER.debug("wasGracefulStop or wasPanicStop");
