@@ -930,8 +930,6 @@ public final class MainWindow implements Runnable, RipStatusHandler {
                 queueListModel.add(0, ripper.getURL().toString());
                 stopButton.setEnabled(false);
                 panicButton.setEnabled(false);
-                currentlyRippingProgress.setValue(0);
-                currentlyRippingProgress.setText("");
                 pack();
                 status(Utils.getLocalizedString("rip.interrupted"));
                 appendLog(Utils.getLocalizedString("download.interrupted"), Color.RED);
