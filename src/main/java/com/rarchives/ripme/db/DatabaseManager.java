@@ -138,6 +138,8 @@ public class DatabaseManager {
         //sqliteConfig.setPragma(SQLiteConfig.Pragma.PAGE_SIZE, "16384"); // bytes; default 4096
         sqliteConfig.setPragma(SQLiteConfig.Pragma.TEMP_STORE, "MEMORY");
         sqliteConfig.setPragma(SQLiteConfig.Pragma.RECURSIVE_TRIGGERS, "OFF");
+        // Prevent SQLITE_BUSY on concurrent access when a transaction gets upgraded from read to write:
+        sqliteConfig.setPragma(SQLiteConfig.Pragma.TRANSACTION_MODE, "IMMEDIATE");
         SQLiteDataSource dataSource = new SQLiteDataSource(sqliteConfig);
         dataSource.setUrl(dbUrl);
         return dataSource;
