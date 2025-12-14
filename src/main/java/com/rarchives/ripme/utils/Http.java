@@ -89,7 +89,7 @@ public class Http {
             while (parts.length > 1) {
                 String domain = String.join(".", parts);
                 // Try to get cookies for this host from config
-                logger.info("Trying to load cookies from config for " + domain);
+                logger.debug("Trying to load cookies from config for " + domain);
                 cookieStr = Utils.getConfigString("cookies." + domain, "");
                 if (!cookieStr.equals("")) {
                     cookieDomain = domain;
