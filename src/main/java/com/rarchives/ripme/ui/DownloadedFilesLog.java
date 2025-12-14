@@ -40,7 +40,11 @@ public class DownloadedFilesLog {
     }
 
     public void add(RipUrlId ripUrlId, File file) {
-        ripUrlIds.put(ripUrlId, file);
+        File previous = ripUrlIds.put(ripUrlId, file);
+        if (previous != null && previous.equals(file)) {
+            logger.debug("File already in downloaded files log: {}", ripUrlId);
+            return;
+        }
         try (FileWriter fw = new FileWriter(DOWNLOADED_FILES_LOG, true)) {
             String path = Utils.removeCWD(file.toPath());
             if (!path.startsWith("/") && !path.startsWith("./") && !path.startsWith("../")) {
