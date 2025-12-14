@@ -158,28 +158,36 @@ class DownloadFileThread implements Runnable {
         }
 
         File saveAs = directory.resolve(filename).toFile();
+        File saveAsPart = directory.resolve(filename + ".part").toFile();
         String prettySaveAs = Utils.removeCWD(saveAs.toPath());
 
         long fileSize = 0;
         long bytesTotal = 0;
         long bytesDownloaded = 0;
-        if (saveAs.exists() && observer.tryResumeDownload()) {
-            fileSize = saveAs.length();
-        }
 
-        if (saveAs.exists() && !observer.tryResumeDownload() && !getFileExtFromMIME
-                || Utils.fuzzyExists(Paths.get(saveAs.getParent()), saveAs.getName()) && getFileExtFromMIME
-                        && !observer.tryResumeDownload()) {
-            if (Utils.getConfigBoolean("file.overwrite", false)) {
+        boolean overwriteFile = Utils.getConfigBoolean("file.overwrite", false);
+        if (overwriteFile) {
+            if (saveAs.exists()) {
                 logger.info("[!] " + Utils.getLocalizedString("deleting.existing.file") + " " + prettySaveAs);
                 if (!saveAs.delete()) logger.error("could not delete existing file: " + saveAs.getAbsolutePath());
-            } else {
+            }
+        } else {
+            if (saveAs.exists()) {
                 logger.info("[!] " + Utils.getLocalizedString("skipping") + " " + url + " -- "
                         + Utils.getLocalizedString("file.already.exists") + ": " + prettySaveAs);
                 observer.downloadExists(ripUrlId, saveAs.toPath());
                 return;
             }
         }
+
+        if (saveAsPart.exists()) {
+            if (observer.tryResumeDownload()) {
+                fileSize = saveAsPart.length();
+            } else {
+                if (!saveAsPart.delete()) logger.error("could not delete existing file: " + saveAsPart.getAbsolutePath());
+            }
+        }
+
         boolean redirected = false;
         int tries = 0; // Number of attempts to download
         do {
@@ -227,7 +235,7 @@ class DownloadFileThread implements Runnable {
                 int statusCode = huc.getResponseCode();
                 logger.debug("Status code: " + statusCode);
                 // If the server doesn't allow resuming downloads error out
-                if (statusCode != 206 && observer.tryResumeDownload() && saveAs.exists()) {
+                if (statusCode != 206 && observer.tryResumeDownload() && saveAsPart.exists()) {
                     // TODO find a better way to handle servers that don't support resuming
                     // downloads then just erroring out
                     observer.downloadErrored(ripUrlId,
@@ -315,34 +323,34 @@ class DownloadFileThread implements Runnable {
                 // If we're resuming a download we append data to the existing file
                 OutputStream fos = null;
                 if (statusCode == 206) {
-                    fos = new FileOutputStream(saveAs, true);
+                    fos = new FileOutputStream(saveAsPart, true);
                 } else {
                     try {
-                        fos = new FileOutputStream(saveAs);
+                        fos = new FileOutputStream(saveAsPart);
                     } catch (FileNotFoundException e) {
                         // We do this because some filesystems have a max name length
                         if (e.getMessage().contains("File name too long")) {
-                            logger.error("The filename " + saveAs.getName()
+                            logger.error("The filename " + saveAsPart.getName()
                                     + " is to long to be saved on this file system.");
                             logger.info("Shortening filename");
-                            String[] saveAsSplit = saveAs.getName().split("\\.");
+                            String[] saveAsSplit = saveAsPart.getName().split("\\.");
                             // Get the file extension so when we shorten the file name we don't cut off the
                             // file extension
                             String fileExt = saveAsSplit[saveAsSplit.length - 1];
                             // The max limit for filenames on Linux with Ext3/4 is 255 bytes
-                            logger.info(saveAs.getName().substring(0, 254 - fileExt.length()) + fileExt);
-                            String filename = saveAs.getName().substring(0, 254 - fileExt.length()) + "." + fileExt;
+                            logger.info(saveAsPart.getName().substring(0, 254 - fileExt.length()) + fileExt);
+                            String filename = saveAsPart.getName().substring(0, 254 - fileExt.length()) + "." + fileExt;
                             // We can't just use the new file name as the saveAs because the file name
                             // doesn't include the
                             // users save path, so we get the user save path from the old saveAs
-                            saveAs = new File(saveAs.getParentFile().getAbsolutePath() + File.separator + filename);
-                            fos = new FileOutputStream(saveAs);
-                        } else if (saveAs.getAbsolutePath().length() > 259 && Utils.isWindows()) {
+                            saveAsPart = new File(saveAsPart.getParentFile().getAbsolutePath() + File.separator + filename);
+                            fos = new FileOutputStream(saveAsPart);
+                        } else if (saveAsPart.getAbsolutePath().length() > 259 && Utils.isWindows()) {
                             // This if is for when the file path has gone above 260 chars which windows does
                             // not allow
                             fos = Files.newOutputStream(
-                                    Utils.shortenSaveAsWindows(saveAs.getParentFile().getPath(), saveAs.getName()));
-                            assert fos != null: "After shortenSaveAsWindows: " + saveAs.getAbsolutePath();
+                                    Utils.shortenSaveAsWindows(saveAsPart.getParentFile().getPath(), saveAsPart.getName()));
+                            assert fos != null: "After shortenSaveAsWindows: " + saveAsPart.getAbsolutePath();
                         }
                         assert fos != null: e.getStackTrace();
                     }
@@ -393,7 +401,7 @@ class DownloadFileThread implements Runnable {
                     return;
                 }
             } catch (IOException e) {
-                if (guessIsENOSPC(e, saveAs)) {
+                if (guessIsENOSPC(e, saveAsPart)) {
                     logger.debug("IOException", e);
                     observer.downloadErrored(ripUrlId, Utils.getLocalizedString("no.space.left.on.device")); // TODO cancel all rips
                     return;
@@ -454,6 +462,11 @@ class DownloadFileThread implements Runnable {
             }
 
         } while (true);
+        boolean renamed = saveAsPart.renameTo(saveAs);
+        if (!renamed) {
+            observer.downloadErrored(ripUrlId, Utils.getLocalizedString("failed.to.rename.0.to.1", saveAsPart, saveAs));
+            return;
+        }
         observer.downloadCompleted(ripUrlId, saveAs.toPath());
         if (remoteFile != null) {
             remoteFile.setFetched(true);
