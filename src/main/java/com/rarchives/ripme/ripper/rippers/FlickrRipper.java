@@ -24,7 +24,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import com.rarchives.ripme.ripper.AbstractHTMLRipper;
-import com.rarchives.ripme.ripper.DownloadThreadPool;
 import com.rarchives.ripme.ui.RipStatusMessage;
 import com.rarchives.ripme.utils.Http;
 
@@ -149,7 +148,7 @@ public class FlickrRipper extends AbstractHTMLRipper {
         "date_upload,icon_urls_deep,isfavorite,ispro,license,media,needs_interstitial,owner_name," +
         "owner_datecreate,path_alias,realname,rotation,safety_level,secret_k,secret_h,url_c,url_f,url_h,url_k," +
         "url_l,url_m,url_n,url_o,url_q,url_s,url_sq,url_t,url_z,visibility,visibility_source,o_dims," +
-        "is_marketplace_printable,is_marketplace_licensable,publiceditability&per_page=100&page="+ pageNumber + "&" +
+        "is_marketplace_printable,is_marketplace_licensable,publiceditability,tags,autotags,&per_page=100&page="+ pageNumber + "&" +
         "get_user_info=1&primary_photo_extras=url_c,%20url_h,%20url_k,%20url_l,%20url_m,%20url_n,%20url_o" +
         ",%20url_q,%20url_s,%20url_sq,%20url_t,%20url_z,%20needs_interstitial,%20can_share&jump_to=&" +
         idField + "&viewerNSID=&method=" + method + "&csrf=&" +
@@ -218,10 +217,19 @@ public class FlickrRipper extends AbstractHTMLRipper {
                 //, "publiceditability"
                 , "system_moderation"
                 //, "static_maps"
+                , "tags"
+                , "autotags"
         );
         String extrasEncoded = URLEncoder.encode(extras, StandardCharsets.UTF_8);
 
         return new URI("https://api.flickr.com/services/rest?datecreate=1&extras=" + extrasEncoded + "&photo_id=" + photoId + "&method=flickr.photos.getInfo&api_key=" + apiKey + "&format=json&hermes=1&hermesClient=1&nojsoncallback=1").toURL();
+    }
+
+    private URL apiPhotoTagsUrl(String photoId, String apiKey) throws URISyntaxException, MalformedURLException {
+        //https://api.flickr.com/services/rest?photo_id=28869282056&extras=autotags&lang=en-US&viewerNSID=&method=flickr.tags.getListPhoto&csrf=&api_key=...&format=json&hermes=1&hermesClient=1&reqId=...&nojsoncallback=1
+        String extras = "autotags";
+        String extrasEncoded = URLEncoder.encode(extras, StandardCharsets.UTF_8);
+        return new URI("https://api.flickr.com/services/rest?" + "photo_id=" + photoId + "&extras=" + extrasEncoded + "&method=flickr.tags.getListPhoto&api_key=" + apiKey + "&format=json&hermes=1&hermesClient=1&nojsoncallback=1").toURL();
     }
 
     private JSONObject getJSON(String page, String apiKey) {
@@ -421,10 +429,22 @@ public class FlickrRipper extends AbstractHTMLRipper {
                         logger.error("Unable to get image info: {}", e.getMessage(), e);
                         continue;
                     }
+                    JSONObject photoTagsJson = new JSONObject();
+                    try {
+                        // Space-separated mangled tags
+                        String basicTags = data.optString("tags");
+                        if (!basicTags.isEmpty()) {
+                            // Get non-mangled tags
+                            photoTagsJson = getPhotoTags(flickrImageId, apiKey);
+                        }
+                    } catch (URISyntaxException | IOException e) {
+                        logger.error("Unable to get image info: {}", e.getMessage(), e);
+                        continue;
+                    }
                     try {
                         URL largestImageURL = getLargestImageURL(photoInfoJson);
                         if (remoteFile != null) {
-                            setImageMeta(remoteFile, photoInfoJson);
+                            setImageMeta(remoteFile, photoInfoJson, photoTagsJson);
                             ripService.saveRemoteFile(remoteFile);
                         }
                         addURLToDownload(largestImageURL, ripUrlId);
@@ -471,7 +491,14 @@ public class FlickrRipper extends AbstractHTMLRipper {
         return photoInfoJson;
     }
 
-    private void setImageMeta(RemoteFile remoteFile, JSONObject photoInfoJson) {
+    private JSONObject getPhotoTags(String flickrImageId, String apiKey) throws URISyntaxException, IOException {
+        URL photoTagsUrl = apiPhotoTagsUrl(flickrImageId, apiKey);
+        String photoTagsText = Http.url(photoTagsUrl).ignoreContentType().response().body();
+        JSONObject photoTagsJson = new JSONObject(photoTagsText);
+        return photoTagsJson;
+    }
+
+    private void setImageMeta(RemoteFile remoteFile, JSONObject photoInfoJson, JSONObject photoTagsJson) {
         JSONObject photoJson = photoInfoJson.optJSONObject("photo");
         if (photoJson == null) {
             logger.error("Unable to get image info");
@@ -508,8 +535,24 @@ public class FlickrRipper extends AbstractHTMLRipper {
                     tags.add(rawTag);
                 }
             }
+        }
+        JSONArray tagJsonArray = Optional.ofNullable(photoTagsJson.optJSONObject("photo", null))
+                .map(x -> x.optJSONObject("tags", null))
+                .map(x -> x.optJSONArray("tag", new JSONArray(0)))
+                .orElse(new JSONArray(0));
+        for (Object o : tagJsonArray) {
+            if (!(o instanceof JSONObject tagObj)) {
+                continue;
+            }
+            String rawTag = tagObj.optString("raw", null);
+            if (rawTag != null) {
+                tags.add(rawTag);
+            }
+        }
+        if (!tags.isEmpty()) {
             remoteFile.setTags(tags);
         }
+
         //{
         //  "stat" : "ok",
         //  "photo" : {
