@@ -74,7 +74,7 @@ public class MrCongRipper extends AbstractHTMLRipper {
 
         if (!tagPage) {
             rootUrlStr = url.toExternalForm().replaceAll("(|/|/[0-9]+/?)$", "/");
-        } else { // 6-10-21
+        } else {
             rootUrlStr = url.toExternalForm().replaceAll("(page/[0-9]+/)$", "page/1/");
         }
 
@@ -98,9 +98,7 @@ public class MrCongRipper extends AbstractHTMLRipper {
                 urlStr = url.toExternalForm().replaceAll("(/([0-9]*)/?)$", ("/" + (pageNum + 1) + "/"));
                 System.out.printf("Old Str: %s   New Str: %s\n", url.toString(), urlStr);
             } else {
-                // System.out.printf("Error: Page number provided goes past last valid page
-                // number\n");
-                throw (new IOException("Error: Page number provided goes past last valid page number\n"));
+                throw new IOException("Error: Page number provided goes past last valid page number\n");
             }
         } else { // 6-10-21
             // if (pageNum == 1 && lastPageNum >= 1) {
@@ -111,18 +109,14 @@ public class MrCongRipper extends AbstractHTMLRipper {
                 urlStr = url.toExternalForm().replaceAll("(page/([0-9]*)/?)$", ("page/" + (pageNum + 1) + "/"));
                 System.out.printf("Old Str: %s   New Str: %s\n", url.toString(), urlStr);
             } else {
-                // System.out.printf("Error: Page number provided goes past last valid page
-                // number\n");
                 System.out.print("Error: There is no next page!\n");
                 return null;
-                // throw (new IOException("Error: Page number provided goes past last valid page
-                // number\n"));
             }
         }
 
         url = URI.create(urlStr).toURL();
         currDoc = Http.url(url).get();
-        currPageNum++;// hi
+        currPageNum++;
         return currDoc;
     }
 
@@ -147,22 +141,9 @@ public class MrCongRipper extends AbstractHTMLRipper {
         return lastPageNum;
     }
 
-    private int getCurrentPageNum(Document doc) {
-        int currPage; // 6-10-21
-
-        if (!tagPage) {
-            currPage = Integer.parseInt(doc.select("div.page-link > span").first().text());
-        } else {
-            currPage = Integer.parseInt(doc.select("div.pagination > span").first().text());
-        }
-
-        System.out.println("The current page was found to be: " + currPage);
-
-        return currPage;
-    }
-
     @Override
-    public List<String> getURLsFromPage(Document doc) { // gets the urls of the images
+    public List<String> getURLsFromPage(Document doc) {
+        // gets the urls of the images
         List<String> result = new ArrayList<>();
 
         if (!tagPage) {
@@ -171,6 +152,7 @@ public class MrCongRipper extends AbstractHTMLRipper {
                 if (imageSource == null || imageSource.isEmpty()) {
                     imageSource = el.attr("src");
                 }
+                result.add(imageSource);
             }
 
             System.out.println("\n1.)Printing List: " + result + "\n");
