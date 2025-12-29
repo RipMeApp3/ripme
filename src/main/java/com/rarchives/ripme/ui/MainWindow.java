@@ -1507,6 +1507,11 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         }
 
         // Calculate preferred column widths
+        boolean dummyHistory = HISTORY.isEmpty();
+        if (dummyHistory) {
+            // Hack: add a dummy row while calculating preferred column widths, then remove it
+            HISTORY.add(new HistoryEntry());
+        }
         int autoResizeMode = historyTable.getAutoResizeMode();
         historyTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         int lastRow = historyTable.getRowCount() - 1;
@@ -1547,6 +1552,9 @@ public final class MainWindow implements Runnable, RipStatusHandler {
         historyTable.getColumnModel().getColumn(column).setMaxWidth(cWidth);
 
         historyTable.setAutoResizeMode(autoResizeMode);
+        if (dummyHistory) {
+            HISTORY.clear();
+        }
     }
 
     private void saveHistory() {
