@@ -449,7 +449,7 @@ class DownloadFileThread implements Runnable {
                     return;
                 }
             } catch (SocketException e) {
-                boolean resumable = "Connection reset".equals(e.getMessage());
+                boolean resumable = "Connection reset".equals(e.getMessage()) || "Connection refused".equals(e.getMessage());
                 if (!resumable) {
                     logger.debug("SocketException", e);
                     logger.error("[!] " + Utils.getLocalizedString("exception.while.downloading.file") + ": " + url + " - "
