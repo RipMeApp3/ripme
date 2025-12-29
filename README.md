@@ -10,6 +10,10 @@
 
 RipMe is an album downloader (or "ripper") for various websites. This is a cross-platform tool that runs on *your* computer. Works on Windows, Linux, and Mac.
 
+RipMe3 is a fork of the original RipMe and RipMe2 programs, with fixes and significant new power, enabling the new companion app [LocalGal](https://github.com/iqqu/localgal).
+RipMe3 is currently in preview release status, and this readme largely reflects the status of the original RipMe.
+When RipMe3 is ready for full release, this readme will be preserved for posterity and a new one will be written.
+
 ![Screenshot](https://i.imgur.com/UCQNjeg.png)
 
 ## Download
@@ -38,6 +42,12 @@ Jump to:
 
 ## Maintainers
 
+RipMe3 is currently maintained by:
+
+- **[@iqqu](https://github.com/iqqu)** 🟢 (2025-present)
+
+RipMe3 would not be possible without the hard work of the original RipMe developers and maintainers below:
+
 RipMe has been maintained with ♥️ and in our limited free time by the following
 people, with current expected activity level marked by color of the indicator:
 
@@ -53,6 +63,8 @@ If you'd like to become a maintainer, reach out on https://gitter.im/RipMeApp/Lo
 ## Contact
 
 Chat with the team and community on [gitter](https://gitter.im/RipMeApp/Lobby) and [reddit.com/r/ripme](https://www.reddit.com/r/ripme/)
+
+To discuss RipMe3, please file an issue or discussion thread on the RipMe3 GitHub repository.
 
 ## Version Numbers
 
