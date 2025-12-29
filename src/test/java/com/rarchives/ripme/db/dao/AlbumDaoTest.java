@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -428,7 +429,6 @@ class AlbumDaoTest extends SQLiteTestBase {
     }
 
 
-
     @Test
     @WithInMemoryDb
     void incrementFetchCount() throws SQLException, MalformedURLException {
@@ -623,5 +623,176 @@ class AlbumDaoTest extends SQLiteTestBase {
         assertTrue(albumDao.hasAlbumRemoteFileMap(album, remoteFile));
         album.setUrl(URI.create("https://example.com/different").toURL());
         assertFalse(albumDao.hasAlbumRemoteFileMap(album, remoteFile));
+    }
+
+    @Test
+    @WithInMemoryDb
+    void albumSumRsBytes() throws SQLException, MalformedURLException {
+        AlbumDao albumDao = new AlbumDao(db);
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1000");
+        album.setUrl(URI.create("https://example.com/album/1000").toURL());
+        albumDao.save(album);
+
+        RemoteFile remoteFile1 = new RemoteFile(); // NULL bytes
+        remoteFile1.setRipperName("MyRipper");
+        remoteFile1.setRipperHost("myripper");
+        remoteFile1.setUrl(URI.create("https://example.com/album/1000/2001.jpg").toURL());
+        remoteFile1.setFetched(true);
+        remoteFile1.setIgnored(false);
+        remoteFileDao.save(remoteFile1);
+        RemoteFile remoteFile2 = new RemoteFile(); // 100 bytes
+        remoteFile2.setRipperName("MyRipper");
+        remoteFile2.setRipperHost("myripper");
+        remoteFile2.setUrl(URI.create("https://example.com/album/1000/2002.jpg").toURL());
+        remoteFile2.setBytes(100L);
+        remoteFile2.setFetched(true);
+        remoteFile2.setIgnored(false);
+        remoteFileDao.save(remoteFile2);
+        RemoteFile remoteFile3 = new RemoteFile(); // 1000 bytes, ignored
+        remoteFile3.setRipperName("MyRipper");
+        remoteFile3.setRipperHost("myripper");
+        remoteFile3.setBytes(1000L);
+        remoteFile3.setFetched(true);
+        remoteFile3.setIgnored(true);
+        remoteFile3.setUrl(URI.create("https://example.com/album/1000/2003.jpg").toURL());
+        remoteFileDao.save(remoteFile3);
+        RemoteFile remoteFile4 = new RemoteFile(); // 10000 bytes, unfetched
+        remoteFile4.setRipperName("MyRipper");
+        remoteFile4.setRipperHost("myripper");
+        remoteFile4.setBytes(10000L);
+        remoteFile4.setFetched(false);
+        remoteFile4.setUrl(URI.create("https://example.com/album/1000/2004.jpg").toURL());
+        remoteFileDao.save(remoteFile4);
+
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile1);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile2);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile3);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile4);
+
+        albumDao.save(album); // Side effect: get the updated album size
+
+        assertEquals(100, album.getSumRfBytes());
+    }
+
+    @Test
+    @WithInMemoryDb
+    void albumSumRsBytes_removeMapping() throws SQLException, MalformedURLException {
+        // TODO test all the permutations of mapping removal: (bytes=100,null; fetched=1,0; ignored=1,0)
+        AlbumDao albumDao = new AlbumDao(db);
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1000");
+        album.setUrl(URI.create("https://example.com/album/1000").toURL());
+        albumDao.save(album);
+
+        RemoteFile remoteFile1 = new RemoteFile(); // 10 bytes
+        remoteFile1.setRipperName("MyRipper");
+        remoteFile1.setRipperHost("myripper");
+        remoteFile1.setUrl(URI.create("https://example.com/album/1000/2001.jpg").toURL());
+        remoteFile1.setBytes(10L);
+        remoteFile1.setFetched(true);
+        remoteFile1.setIgnored(false);
+        remoteFileDao.save(remoteFile1);
+        RemoteFile remoteFile2 = new RemoteFile(); // 100 bytes
+        remoteFile2.setRipperName("MyRipper");
+        remoteFile2.setRipperHost("myripper");
+        remoteFile2.setUrl(URI.create("https://example.com/album/1000/2002.jpg").toURL());
+        remoteFile2.setBytes(100L);
+        remoteFile2.setFetched(true);
+        remoteFile2.setIgnored(false);
+        remoteFileDao.save(remoteFile2);
+        RemoteFile remoteFile3 = new RemoteFile(); // 1000 bytes, ignored
+        remoteFile3.setRipperName("MyRipper");
+        remoteFile3.setRipperHost("myripper");
+        remoteFile3.setBytes(1000L);
+        remoteFile3.setFetched(true);
+        remoteFile3.setIgnored(false);
+        remoteFile3.setUrl(URI.create("https://example.com/album/1000/2003.jpg").toURL());
+        remoteFileDao.save(remoteFile3);
+
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile1);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile2);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile3);
+
+        albumDao.save(album); // Side effect: get the updated album size
+        assertEquals(1110, album.getSumRfBytes());
+
+        db.withConnection(conn -> {
+            String sql = """
+                    DELETE
+                      FROM map_album_remote_file
+                     WHERE album_id = ?
+                       AND remote_file_id = ?
+                    """;
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setLong(1, album.getId());
+                stmt.setLong(2, remoteFile3.getId());
+                stmt.execute();
+            }
+        });
+
+        albumDao.save(album); // Side effect: get the updated album size
+        assertEquals(110, album.getSumRfBytes());
+    }
+
+    @Test
+    @WithInMemoryDb
+    void albumSumRsBytes_removeFile() throws SQLException, MalformedURLException {
+        // TODO test all the permutations of file removal: (bytes=100,null; fetched=1,0; ignored=1,0)
+        AlbumDao albumDao = new AlbumDao(db);
+        RemoteFileDao remoteFileDao = new RemoteFileDao(db);
+
+        Album album = new Album();
+        album.setRipperName("MyRipper");
+        album.setRipperHost("myripper");
+        album.setGid("AlbumId1000");
+        album.setUrl(URI.create("https://example.com/album/1000").toURL());
+        albumDao.save(album);
+
+        RemoteFile remoteFile1 = new RemoteFile(); // 10 bytes
+        remoteFile1.setRipperName("MyRipper");
+        remoteFile1.setRipperHost("myripper");
+        remoteFile1.setUrl(URI.create("https://example.com/album/1000/2001.jpg").toURL());
+        remoteFile1.setBytes(10L);
+        remoteFile1.setFetched(true);
+        remoteFile1.setIgnored(false);
+        remoteFileDao.save(remoteFile1);
+        RemoteFile remoteFile2 = new RemoteFile(); // 100 bytes
+        remoteFile2.setRipperName("MyRipper");
+        remoteFile2.setRipperHost("myripper");
+        remoteFile2.setUrl(URI.create("https://example.com/album/1000/2002.jpg").toURL());
+        remoteFile2.setBytes(100L);
+        remoteFile2.setFetched(true);
+        remoteFile2.setIgnored(false);
+        remoteFileDao.save(remoteFile2);
+
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile1);
+        albumDao.ensureAlbumRemoteFileMap(album, remoteFile2);
+
+        albumDao.save(album); // Side effect: get the updated album size
+        assertEquals(110, album.getSumRfBytes());
+
+        db.withConnection(conn -> {
+            String sql = """
+                    DELETE
+                      FROM remote_file
+                     WHERE remote_file_id = ?
+                    """;
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setLong(1, remoteFile2.getId());
+                stmt.execute();
+            }
+        });
+
+        albumDao.save(album); // Side effect: get the updated album size
+        assertEquals(10, album.getSumRfBytes());
     }
 }

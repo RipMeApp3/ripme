@@ -30,6 +30,7 @@ public class Album {
     private Instant lastFetchTs; // Automatically set by AlbumDao
     private Instant insertedTs; // Automatically set by AlbumDao
     private Integer localRating; // Not used by RipMe; for arbitrary local use by other applications
+    private long sumRfBytes; // Never to be set manually. Updated in the db with triggers
     private Set<String> tags; // To be set by ripper
 
     public Set<String> getTags() {

@@ -40,6 +40,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , hidden
                          , removed
                          , local_rating
+                         , sum_rf_bytes
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -77,6 +78,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , hidden
                          , removed
                          , local_rating
+                         , sum_rf_bytes
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -123,6 +125,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , hidden
                          , removed
                          , local_rating
+                         , sum_rf_bytes
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -165,6 +168,7 @@ public class AlbumDao extends BaseDao<Album> {
                          , hidden
                          , removed
                          , local_rating
+                         , sum_rf_bytes
                          , last_fetch_ts
                          , inserted_ts
                       FROM album
@@ -218,6 +222,7 @@ public class AlbumDao extends BaseDao<Album> {
         album.setHidden(rs.getBoolean("hidden"));
         album.setRemoved(rs.getBoolean("removed"));
         album.setLocalRating(rs.getObject("local_rating") == null ? null : rs.getInt("local_rating")); // nullable
+        album.setSumRfBytes(rs.getLong("sum_rf_bytes"));
         album.setLastFetchTs(lastFetchTs);
         album.setInsertedTs(insertedTs);
         return album;
@@ -305,7 +310,7 @@ public class AlbumDao extends BaseDao<Album> {
                         , last_fetch_ts = CASE
                                               WHEN EXCLUDED.fetch_count > album.fetch_count THEN UNIXEPOCH('subsec') * 1000
                                               ELSE album.last_fetch_ts END
-                RETURNING album_id, inserted_ts, last_fetch_ts
+                RETURNING album_id, sum_rf_bytes, inserted_ts, last_fetch_ts
                 """;
         db.withConnection(conn -> {
             try (PreparedStatement stmt1 = conn.prepareStatement(ensureRipper);
@@ -352,11 +357,14 @@ public class AlbumDao extends BaseDao<Album> {
                     }
 
                     long albumId;
+                    long sumRfBytes;
                     Instant lastFetchTs;
                     Instant insertedTs;
                     try (ResultSet resultSet2 = stmt2.executeQuery()) {
                         albumId = resultSet2.getLong("album_id");
+                        sumRfBytes = resultSet2.getLong("sum_rf_bytes");
                         lastFetchTs = resultSet2.getObject("last_fetch_ts") == null ? null : Instant.ofEpochMilli(resultSet2.getLong("last_fetch_ts"));
+                        insertedTs = Instant.ofEpochMilli(resultSet2.getLong("inserted_ts"));
                         insertedTs = Instant.ofEpochMilli(resultSet2.getLong("inserted_ts"));
                     }
 
@@ -364,6 +372,7 @@ public class AlbumDao extends BaseDao<Album> {
 
                     conn.commit();
                     album.setId(albumId);
+                    album.setSumRfBytes(sumRfBytes);
                     album.setLastFetchTs(lastFetchTs);
                     album.setInsertedTs(insertedTs);
                 } catch (SQLException e) {
