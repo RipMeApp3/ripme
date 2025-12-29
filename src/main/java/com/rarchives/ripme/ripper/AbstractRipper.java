@@ -840,7 +840,6 @@ public abstract class AbstractRipper
             RipStatusMessage msg = new RipStatusMessage(STATUS.RIP_COMPLETE, rsc);
             //logger.debug("Sending RIP_COMPLETE: url: {}", getURL());
             observer.update(this, msg);
-            ripService.incrementFetchCount(album);
 
             // we do not care if the rollingfileappender is active,
             // just change the logfile in case
@@ -959,6 +958,7 @@ public abstract class AbstractRipper
     public void run() {
         try {
             logger.info("Rip started: {}", getURL());
+            ripService.incrementFetchCount(album); // Reflects fetch start, not fetch completion
             rip();
             ripService.saveAlbum(album);
         } catch (HttpStatusException e) {
