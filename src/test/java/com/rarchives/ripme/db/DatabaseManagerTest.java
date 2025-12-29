@@ -43,7 +43,7 @@ class DatabaseManagerTest {
 
             // Manually update the test for each additional migration from scratch.
             // Worth manually updating to catch accidentally committed schema changes.
-            assertEquals("005", version, "Schema version should be 005");
+            assertEquals("011", version, "Schema version should be 011");
         }
     }
 }
