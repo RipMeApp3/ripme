@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -273,6 +274,28 @@ class DownloadFileThread implements Runnable {
                     continue; // retry
                 }
                 if (statusCode / 100 == 4) { // 4xx errors
+                    Map<String, List<String>> headers = huc.getHeaderFields();
+                    logger.debug("Response headers for status code {} of {} - {}", statusCode, ripUrlId, url);
+                    for (Map.Entry<String, List<String>> keyValues : headers.entrySet()) {
+                        logger.debug("  {}: {}", keyValues.getKey(), keyValues.getValue());
+                    }
+                    if (statusCode == 429) { // Too Many Requests
+                        String retryAfter = huc.getHeaderField("Retry-After");
+                        if (retryAfter != null) {
+                            int secs = 0;
+                            try {
+                                secs = Integer.parseInt(retryAfter);
+                                try {
+                                    Thread.sleep(Duration.ofSeconds(secs));
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    throw new RuntimeException(e);
+                                }
+                            } catch (NumberFormatException e) {
+                                // ignore
+                            }
+                        }
+                    }
                     logger.error("[!] " + Utils.getLocalizedString("nonretriable.status.code") + " " + statusCode
                             + " while downloading from " + url);
                     observer.downloadErrored(ripUrlId, Utils.getLocalizedString("nonretriable.status.code") + " "
